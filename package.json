@@ -56,7 +56,9 @@
   "scripts": {
     "build": "./node_modules/grunt-cli/bin/grunt",
     "test": "./node_modules/grunt-cli/bin/grunt test",
-    "dev": "./node_modules/grunt-cli/bin/grunt && ./node_modules/grunt-cli/bin/grunt watch"
+    "dev": "./node_modules/grunt-cli/bin/grunt && ./node_modules/grunt-cli/bin/grunt watch",
+    "snyk-protect": "snyk protect",
+    "prepare": "npm run snyk-protect"
   },
   "license": "Apache-2.0",
   "dependencies": {
@@ -76,6 +78,8 @@
     "tether-drop": "https://github.com/torkelo/drop",
     "tslint": "^5.1.0",
     "typescript": "^2.2.2",
-    "virtual-scroll": "^1.1.1"
-  }
+    "virtual-scroll": "^1.1.1",
+    "snyk": "^1.88.0"
+  },
+  "snyk": true
 }
