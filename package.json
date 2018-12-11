@@ -67,14 +67,14 @@
     "grunt-sass-lint": "^0.2.2",
     "grunt-sync": "^0.6.2",
     "karma-sinon": "^1.0.5",
-    "lodash": "^4.17.2",
+    "lodash": "^4.17.5",
     "mousetrap": "^1.6.0",
     "remarkable": "^1.7.1",
     "sinon": "1.17.6",
-    "systemjs-builder": "^0.15.34",
+    "systemjs-builder": "^0.15.36",
     "tether": "^1.4.0",
     "tether-drop": "https://github.com/torkelo/drop",
-    "tslint": "^5.1.0",
+    "tslint": "^5.5.0",
     "typescript": "^2.2.2",
     "virtual-scroll": "^1.1.1"
   }
