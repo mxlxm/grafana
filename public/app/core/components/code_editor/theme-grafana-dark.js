@@ -1,6 +1,6 @@
 /* jshint ignore:start */
 
-ace.define("ace/theme/grafana-dark",["require","exports","module","ace/lib/dom"], function(require, exports, module) {
+ace.define("ace/theme/grafana-dark",["require","exports","module","ace/lib/dom"], function(acequire, exports, module) {
   "use strict";
 
   exports.isDark = true;
@@ -14,7 +14,7 @@ ace.define("ace/theme/grafana-dark",["require","exports","module","ace/lib/dom"]
   background: #555651\
   }\
   .gf-code-dark {\
-  background-color: #111;\
+  background-color: #09090b;\
   color: #e0e0e0\
   }\
   .gf-code-dark .ace_cursor {\
@@ -109,7 +109,7 @@ ace.define("ace/theme/grafana-dark",["require","exports","module","ace/lib/dom"]
   background: url(data:image/png;base64,ivborw0kggoaaaansuheugaaaaeaaaaccayaaaczgbynaaaaekleqvqimwpq0fd0zxbzd/wpaajvaoxesgneaaaaaelftksuqmcc) right repeat-y\
   }";
 
-  var dom = require("../lib/dom");
+  var dom = acequire("../lib/dom");
   dom.importCssString(exports.cssText, exports.cssClass);
 });
 

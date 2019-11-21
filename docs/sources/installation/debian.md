@@ -8,55 +8,54 @@ aliases = ["/installation/installation/debian"]
 name = "Installing on Ubuntu / Debian"
 identifier = "debian"
 parent = "installation"
-weight = 1
+weight = 200
 +++
 
 # Installing on Debian / Ubuntu
 
-Description | Download
------------- | -------------
-Stable for Debian-based Linux | [grafana_4.4.3_amd64.deb](https://s3-us-west-2.amazonaws.com/grafana-releases/release/grafana_4.4.3_amd64.deb)
-Beta for Debian-based Linux | [grafana_4.5.0-beta1_amd64.deb](https://s3-us-west-2.amazonaws.com/grafana-releases/release/grafana_4.5.0-beta1_amd64.deb)
-
 Read [Upgrading Grafana]({{< relref "installation/upgrading.md" >}}) for tips and guidance on updating an existing
 installation.
 
-## Install Stable
+## Download
+
+Go to the [download page](https://grafana.com/grafana/download?platform=linux) for the latest download
+links.
 
 ```bash
-wget https://s3-us-west-2.amazonaws.com/grafana-releases/release/grafana_4.4.3_amd64.deb
-sudo apt-get install -y adduser libfontconfig
-sudo dpkg -i grafana_4.4.3_amd64.deb
+wget <debian package url>
+sudo apt-get install -y adduser libfontconfig1
+sudo dpkg -i grafana_<version>_amd64.deb
 ```
 
-## Install Latest Beta
-
-```bash
-wget https://s3-us-west-2.amazonaws.com/grafana-releases/release/grafana_4.5.0-beta1_amd64.deb
-sudo apt-get install -y adduser libfontconfig
-sudo dpkg -i grafana_4.5.0-beta1_amd64.deb
-```
+You will find package URLs on the [download page](https://grafana.com/grafana/download?platform=linux).
 
 ## APT Repository
 
-Add the following line to your `/etc/apt/sources.list` file.
-
-    deb https://packagecloud.io/grafana/stable/debian/ jessie main
-
-Use the above line even if you are on Ubuntu or another Debian version.
-There is also a testing repository if you want beta or release
-candidates.
-
-    deb https://packagecloud.io/grafana/testing/debian/ jessie main
-
-Then add the [Package Cloud](https://packagecloud.io/grafana) key. This
-allows you to install signed packages.
+The command `add-apt-repository` isn't a default app on Debian 9 and requires you to run:
 
 ```bash
-curl https://packagecloud.io/gpg.key | sudo apt-key add -
+apt-get install -y software-properties-common
 ```
 
-Update your Apt repositories and install Grafana
+Install the repository for stable releases:
+
+```bash
+sudo add-apt-repository "deb https://packages.grafana.com/oss/deb stable main"
+```
+
+There is a separate repository if you want beta releases:
+
+```bash
+sudo add-apt-repository "deb https://packages.grafana.com/oss/deb beta main"
+```
+
+Use the above line even if you are on Ubuntu or another Debian version. Then add our GPG key. This allows you to install signed packages.
+
+```bash
+wget -q -O - https://packages.grafana.com/gpg.key | sudo apt-key add -
+```
+
+Update your Apt repositories and install Grafana:
 
 ```bash
 sudo apt-get update
@@ -93,6 +92,8 @@ sudo service grafana-server start
 This will start the `grafana-server` process as the `grafana` user,
 which was created during the package installation. The default HTTP port
 is `3000` and default user and group is `admin`.
+
+Default login and password `admin`/ `admin`
 
 To configure the Grafana server to start at boot time:
 
@@ -141,10 +142,10 @@ those options.
 
 ### Adding data sources
 
-- [Graphite]({{< relref "features/datasources/graphite.md" >}})
-- [InfluxDB]({{< relref "features/datasources/influxdb.md" >}})
-- [OpenTSDB]({{< relref "features/datasources/opentsdb.md" >}})
-- [Prometheus]({{< relref "features/datasources/prometheus.md" >}})
+- [Graphite]({{< relref "../features/datasources/graphite.md" >}})
+- [InfluxDB]({{< relref "../features/datasources/influxdb.md" >}})
+- [OpenTSDB]({{< relref "../features/datasources/opentsdb.md" >}})
+- [Prometheus]({{< relref "../features/datasources/prometheus.md" >}})
 
 ## Installing from binary tar file
 
@@ -160,3 +161,8 @@ To configure Grafana add a configuration file named `custom.ini` to the
 Start Grafana by executing `./bin/grafana-server web`. The `grafana-server`
 binary needs the working directory to be the root install directory (where the
 binary and the `public` folder is located).
+
+## Logging in for the first time
+
+To run Grafana open your browser and go to http://localhost:3000/. 3000 is the default HTTP port that Grafana listens to if you haven't [configured a different port](/installation/configuration/#http-port).
+Then follow the instructions [here](/guides/getting_started/).

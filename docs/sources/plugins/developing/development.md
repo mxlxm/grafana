@@ -10,25 +10,42 @@ weight = 1
 
 # Developer Guide
 
-From grafana 3.0 it's very easy to develop your own plugins and share them with other grafana users.
-
-There are two blog posts about authoring a plugin that might also be of interest to any plugin authors, [Timing is Everything. Writing the Clock Panel Plugin for Grafana 3.0- part 1](https://grafana.com/blog/2016/04/08/timing-is-everything.-writing-the-clock-panel-plugin-for-grafana-3.0/) and [Timing is Everything. Editor Mode in Grafana 3.0 for the Clock Panel Plugin](https://grafana.com/blog/2016/04/15/timing-is-everything.-editor-mode-in-grafana-3.0-for-the-clock-panel-plugin/).
+You can extend Grafana by writing your own plugins and then share them with other users in [our plugin repository](https://grafana.com/plugins).
 
 ## Short version
 
 1. [Setup grafana](http://docs.grafana.org/project/building_from_source/)
 2. Clone an example plugin into ```/var/lib/grafana/plugins```  or `data/plugins` (relative to grafana git repo if you're running development version from source dir)
-3. Code away!
+3. Use one of our example plugins as starting point
+
+Example plugins
+
+- ["Hello World" panel using Angular](https://github.com/grafana/simple-angular-panel)
+- ["Hello World" panel using React](https://github.com/grafana/simple-react-panel)
+- [Simple json data source](https://github.com/grafana/simple-json-datasource)
+- [Clock panel](https://github.com/grafana/clock-panel)
+- [Pie chart panel](https://github.com/grafana/piechart-panel)
+
+There are two blog posts about authoring a plugin that might also be of interest to any plugin authors.
+
+- [Timing is Everything. Writing the Clock Panel Plugin for Grafana](https://grafana.com/blog/2016/04/08/timing-is-everything.-writing-the-clock-panel-plugin-for-grafana-3.0/)
+- [Timing is Everything. Editor Mode in Grafana for the Clock Panel Plugin](https://grafana.com/blog/2016/04/15/timing-is-everything.-editor-mode-in-grafana-3.0-for-the-clock-panel-plugin/).
 
 ## What languages?
 
-Since everything turns into javascript it's up to you to choose which language you want. That said it's probably a good idea to choose es6 or typescript since we use es6 classes in Grafana. So it's easier to get inspiration from the Grafana repo is you choose one of those languages.
+Since everything turns into javascript it's up to you to choose which language you want. That said it's probably a good idea to choose es6 or typescript since
+we use es6 classes in Grafana. So it's easier to get inspiration from the Grafana repo if you choose one of those languages.
 
 ## Buildscript
 
-You can use any build system you like that support systemjs. All the built content should end up in a folder named ```dist``` and committed to the repository.By committing the dist folder the person who installs your plugin does not have to run any buildscript.
-
+You can use any build system you like that support systemjs. All the built content should end up in a folder named ```dist``` and committed to the repository.
+By committing the dist folder the person who installs your plugin does not have to run any buildscript.
 All our example plugins have build scripted configured.
+
+## Keep your plugin up to date
+
+New versions of Grafana can sometimes cause plugins to break. Checkout our [PLUGIN_DEV.md](https://github.com/grafana/grafana/blob/master/PLUGIN_DEV.md) doc for changes in
+Grafana that can impact your plugin.
 
 ## Metadata
 
@@ -44,7 +61,6 @@ and [apps]({{< relref "apps.md" >}}) plugins in the documentation.
 The Grafana SDK is quite small so far and can be found here:
 
 - [SDK file in Grafana](https://github.com/grafana/grafana/blob/master/public/app/plugins/sdk.ts)
-- [SDK Readme](https://github.com/grafana/grafana/blob/master/public/app/plugins/plugin_api.md)
 
 The SDK contains three different plugin classes: PanelCtrl, MetricsPanelCtrl and QueryCtrl. For plugins of the panel type, the module.js file should export one of these. There are some extra classes for [data sources]({{< relref "datasources.md" >}}).
 
@@ -104,7 +120,7 @@ If a panel receives data and hooks into the `data-received` event then it should
 
 We currently have three different examples that you can fork/download to get started developing your grafana plugin.
 
- - [simple-json-datasource](https://github.com/grafana/simple-json-datasource) (small datasource plugin for querying json data from backends)
+ - [simple-json-datasource](https://github.com/grafana/simple-json-datasource) (small data source plugin for querying json data from backends)
  - [example-app](https://github.com/grafana/example-app)
  - [clock-panel](https://github.com/grafana/clock-panel)
  - [singlestat-panel](https://github.com/grafana/grafana/blob/master/public/app/plugins/panel/singlestat/module.ts)
@@ -116,5 +132,5 @@ We currently have three different examples that you can fork/download to get sta
 - [Plugin Defaults and Editor Mode]({{< relref "defaults-and-editor-mode.md" >}})
 - [Grafana Plugin Code Styleguide]({{< relref "code-styleguide.md" >}})
 - [Grafana Apps]({{< relref "apps.md" >}})
-- [Grafana Datasources]({{< relref "datasources.md" >}})
+- [Grafana Data Sources]({{< relref "datasources.md" >}})
 - [plugin.json Schema]({{< relref "plugin.json.md" >}})

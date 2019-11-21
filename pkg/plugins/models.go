@@ -2,7 +2,6 @@ package plugins
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"strings"
 
@@ -15,6 +14,13 @@ var (
 	PluginTypeDatasource = "datasource"
 	PluginTypePanel      = "panel"
 	PluginTypeDashboard  = "dashboard"
+)
+
+type PluginState string
+
+var (
+	PluginStateAlpha PluginState = "alpha"
+	PluginStateBeta  PluginState = "beta"
 )
 
 type PluginNotFoundError struct {
@@ -38,8 +44,10 @@ type PluginBase struct {
 	Includes     []*PluginInclude   `json:"includes"`
 	Module       string             `json:"module"`
 	BaseUrl      string             `json:"baseUrl"`
+	Category     string             `json:"category"`
 	HideFromList bool               `json:"hideFromList,omitempty"`
-	State        string             `json:"state,omitempty"`
+	Preload      bool               `json:"preload"`
+	State        PluginState        `json:"state,omitempty"`
 
 	IncludedInAppId string `json:"-"`
 	PluginDir       string `json:"-"`
@@ -52,7 +60,7 @@ type PluginBase struct {
 
 func (pb *PluginBase) registerPlugin(pluginDir string) error {
 	if _, exists := Plugins[pb.Id]; exists {
-		return errors.New("Plugin with same id already exists")
+		return fmt.Errorf("Plugin with ID %q already exists", pb.Id)
 	}
 
 	if !strings.HasPrefix(pluginDir, setting.StaticRootPath) {
@@ -69,7 +77,7 @@ func (pb *PluginBase) registerPlugin(pluginDir string) error {
 
 	for _, include := range pb.Includes {
 		if include.Role == "" {
-			include.Role = m.RoleType(m.ROLE_VIEWER)
+			include.Role = m.ROLE_VIEWER
 		}
 	}
 
@@ -103,11 +111,19 @@ type PluginDependencyItem struct {
 	Version string `json:"version"`
 }
 
+type PluginBuildInfo struct {
+	Time   int64  `json:"time,omitempty"`
+	Repo   string `json:"repo,omitempty"`
+	Branch string `json:"branch,omitempty"`
+	Hash   string `json:"hash,omitempty"`
+}
+
 type PluginInfo struct {
 	Author      PluginInfoLink      `json:"author"`
 	Description string              `json:"description"`
 	Links       []PluginInfoLink    `json:"links"`
 	Logos       PluginLogos         `json:"logos"`
+	Build       PluginBuildInfo     `json:"build"`
 	Screenshots []PluginScreenshots `json:"screenshots"`
 	Version     string              `json:"version"`
 	Updated     string              `json:"updated"`

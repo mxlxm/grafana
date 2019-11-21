@@ -6,43 +6,23 @@ import (
 	"github.com/grafana/grafana/pkg/models"
 )
 
+type TsdbQuery struct {
+	TimeRange *TimeRange
+	Queries   []*Query
+	Debug     bool
+}
+
 type Query struct {
 	RefId         string
 	Model         *simplejson.Json
-	Depends       []string
 	DataSource    *models.DataSource
-	Results       []*TimeSeries
-	Exclude       bool
 	MaxDataPoints int64
 	IntervalMs    int64
 }
 
-type QuerySlice []*Query
-
-type Request struct {
-	TimeRange *TimeRange
-	Queries   QuerySlice
-}
-
 type Response struct {
-	BatchTimings []*BatchTiming          `json:"timings"`
-	Results      map[string]*QueryResult `json:"results"`
-	Message      string                  `json:"message,omitempty"`
-}
-
-type BatchTiming struct {
-	TimeElapsed int64
-}
-
-type BatchResult struct {
-	Error        error
-	QueryResults map[string]*QueryResult
-	Timings      *BatchTiming
-}
-
-func (br *BatchResult) WithError(err error) *BatchResult {
-	br.Error = err
-	return br
+	Results map[string]*QueryResult `json:"results"`
+	Message string                  `json:"message,omitempty"`
 }
 
 type QueryResult struct {
@@ -52,6 +32,7 @@ type QueryResult struct {
 	Meta        *simplejson.Json `json:"meta,omitempty"`
 	Series      TimeSeriesSlice  `json:"series"`
 	Tables      []*Table         `json:"tables"`
+	Dataframes  [][]byte         `json:"dataframes"`
 }
 
 type TimeSeries struct {

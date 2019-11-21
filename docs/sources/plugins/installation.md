@@ -8,10 +8,10 @@ weight = 1
 
 # Grafana Plugins
 
-From Grafana 3.0+ not only are datasource plugins supported but also panel plugins and apps.
+From Grafana 3.0+ not only are data source plugins supported but also panel plugins and apps.
 Having panels as plugins make it easy to create and add any kind of panel, to show your data
 or improve your favorite dashboards. Apps is something new in Grafana that enables
-bundling of datasources, panels, dashboards and Grafana pages into a cohesive experience.
+bundling of data sources, panels, dashboards and Grafana pages into a cohesive experience.
 
 Grafana already have a strong community of contributors and plugin developers.
 By making it easier to develop and install plugins we hope that the community
@@ -30,37 +30,37 @@ On Linux systems the grafana-cli will assume that the grafana plugin directory i
 ### Grafana-cli Commands
 
 List available plugins
-```
+```bash
 grafana-cli plugins list-remote
 ```
 
 Install the latest version of a plugin
-```
+```bash
 grafana-cli plugins install <plugin-id>
 ```
 
 Install a specific version of a plugin
-```
+```bash
 grafana-cli plugins install <plugin-id> <version>
 ```
 
 List installed plugins
-```
+```bash
 grafana-cli plugins ls
 ```
 
 Update all installed plugins
-```
+```bash
 grafana-cli plugins update-all
 ```
 
 Update one plugin
-```
+```bash
 grafana-cli plugins update <plugin-id>
 ```
 
 Remove one plugin
-```
+```bash
 grafana-cli plugins remove <plugin-id>
 ```
 
@@ -72,6 +72,11 @@ The Download URL from Grafana.com API is in this form:
 
 `https://grafana.com/api/plugins/<plugin id>/versions/<version number>/download`
 
+You can specify a local URL by using the `--pluginUrl` option.
+```bash
+grafana-cli --pluginUrl https://nexus.company.com/grafana/plugins/<plugin-id>-<plugin-version>.zip plugins install <plugin-id>
+```
+
 To manually install a Plugin via the Grafana.com API:
 
 1. Find the plugin you want to download, the plugin id can be found on the Installation Tab on the plugin's page on Grafana.com. In this example, the plugin id is `jdbranham-diagram-panel`:
@@ -79,7 +84,7 @@ To manually install a Plugin via the Grafana.com API:
     {{< imgbox img="/img/docs/installation-tab.png" caption="Installation Tab" >}}
 
 2. Use the Grafana API to find the plugin using this url `https://grafana.com/api/plugins/<plugin id from step 1>`. For example: https://grafana.com/api/plugins/jdbranham-diagram-panel should return:
-    ```
+    ```bash
     {
       "id": 145,
       "typeId": 3,
@@ -92,7 +97,7 @@ To manually install a Plugin via the Grafana.com API:
     ```
 
 3. Find the download link:
-    ```
+    ```bash
     {
        "rel": "download",
        "href": "/plugins/jdbranham-diagram-panel/versions/1.4.0/download"

@@ -1,79 +1,46 @@
-[Grafana](https://grafana.com) [![Circle CI](https://circleci.com/gh/grafana/grafana.svg?style=svg)](https://circleci.com/gh/grafana/grafana) [![Go Report Card](https://goreportcard.com/badge/github.com/grafana/grafana)](https://goreportcard.com/report/github.com/grafana/grafana)
-================
-[Website](https://grafana.com) |
-[Twitter](https://twitter.com/grafana) |
-[Community & Forum](https://community.grafana.com)
+![Grafana](docs/logo-horizontal.png)
 
-Grafana is an open source, feature rich metrics dashboard and graph editor for
-Graphite, Elasticsearch, OpenTSDB, Prometheus and InfluxDB.
+The open-source platform for monitoring and observability.
 
-![](http://docs.grafana.org/assets/img/features/dashboard_ex1.png)
+[![License](https://img.shields.io/github/license/grafana/grafana)](LICENSE)
+[![Circle CI](https://img.shields.io/circleci/build/gh/grafana/grafana)](https://circleci.com/gh/grafana/grafana)
+[![Go Report Card](https://goreportcard.com/badge/github.com/grafana/grafana)](https://goreportcard.com/report/github.com/grafana/grafana)
 
-## Installation
-Head to [docs.grafana.org](http://docs.grafana.org/installation/) and [download](https://grafana.com/get)
-the latest release.
+Grafana allows you to query, visualize, alert on and understand your metrics no matter where they are stored. Create, explore, and share dashboards with your team and foster a data driven culture:
 
-If you have any problems please read the [troubleshooting guide](http://docs.grafana.org/installation/troubleshooting/).
+- **Visualize:** Fast and flexible client side graphs with a multitude of options. Panel plugins for many different way to visualize metrics and logs.
+- **Dynamic Dashboards:** Create dynamic & reusable dashboards with template variables that appear as dropdowns at the top of the dashboard.
+- **Explore Metrics:** Explore your data through ad-hoc queries and dynamic drilldown. Split view and compare different time ranges, queries and data sources side by side.
+- **Explore Logs:** Experience the magic of switching from metrics to logs with preserved label filters. Quickly search through all your logs or streaming them live.
+- **Alerting:** Visually define alert rules for your most important metrics. Grafana will continuously evaluate and send notifications to systems like Slack, PagerDuty, VictorOps, OpsGenie.
+- **Mixed Data Sources:** Mix different data sources in the same graph! You can specify a data source on a per-query basis. This works for even custom datasources.
 
-## Documentation & Support
-Be sure to read the [getting started guide](http://docs.grafana.org/guides/gettingstarted/) and the other feature guides.
+## Get started
 
-## Run from master
-If you want to build a package yourself, or contribute. Here is a guide for how to do that. You can always find
-the latest master builds [here](https://grafana.com/grafana/download)
+- [Get Grafana](https://grafana.com/get)
+- [Installation guides](http://docs.grafana.org/installation/)
 
-### Dependencies
+Unsure if Grafana is for you? Watch Grafana in action on [play.grafana.org](https://play.grafana.org/)!
 
-- Go 1.8.1
-- NodeJS LTS
+## Documentation
 
-### Building the backend
-```bash
-go get github.com/grafana/grafana
-cd ~/go/src/github.com/grafana/grafana
-go run build.go setup
-go run build.go build
-```
+The Grafana documentation is available at [grafana.com/docs](https://grafana.com/docs/).
 
-### Building frontend assets
+## Contributing
 
-To build less to css for the frontend you will need a recent version of **node (v6+)**,
-npm (v2.5.0) and grunt (v0.4.5). Run the following:
+If you're interested in contributing to the Grafana project:
 
-```bash
-npm install -g yarn
-yarn install --pure-lockfile
-npm run build
-```
+- Start by reading the [Contributing guide](/CONTRIBUTING.md).
+- Learn how to set up your local environment, in our [Developer guide](/contribute/developer-guide.md).
+- Explore our [beginner-friendly issues](https://github.com/grafana/grafana/issues?q=is%3Aopen+is%3Aissue+label%3A%22beginner+friendly%22).
 
-To build the frontend assets only on changes:
+## Get involved
 
-```bash
-npm run dev
-```
-
-### Recompile backend on source change
-To rebuild on source change.
-```bash
-go get github.com/Unknwon/bra
-bra run
-```
-
-Open grafana in your browser (default: `http://localhost:3000`) and login with admin user (default: `user/pass = admin/admin`).
-
-### Dev config
-
-Create a custom.ini in the conf directory to override default configuration options.
-You only need to add the options you want to override. Config files are applied in the order of:
-
-1. grafana.ini
-1. custom.ini
-
-## Contribute
-If you have any idea for an improvement or found a bug do not hesitate to open an issue.
-And if you have time clone this repo and submit a pull request and help me make Grafana
-the kickass metrics & devops dashboard we all dream about!
+- Follow [@grafana on Twitter](https://twitter.com/grafana/)
+- Read and subscribe to the [Grafana blog](https://grafana.com/blog/)
+- If you have a specific question, check out our [discussion forums](https://community.grafana.com/).
+- For general discussions, join us on the [official Slack](http://slack.raintank.io/) team.
 
 ## License
-Grafana is distributed under Apache 2.0 License.
-Work in progress Grafana 2.0 (with included Grafana backend)
+
+Grafana is distributed under the [Apache 2.0 License](https://github.com/grafana/grafana/blob/master/LICENSE).

@@ -3,6 +3,8 @@ package main
 import (
 	"flag"
 	"fmt"
+	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"os/signal"
 	"runtime"
@@ -11,51 +13,56 @@ import (
 	"syscall"
 	"time"
 
-	"net/http"
-	_ "net/http/pprof"
-
-	"github.com/grafana/grafana/pkg/models"
-	"github.com/grafana/grafana/pkg/services/sqlstore"
-	"github.com/grafana/grafana/pkg/setting"
-
+	"github.com/grafana/grafana/pkg/extensions"
+	"github.com/grafana/grafana/pkg/infra/log"
+	"github.com/grafana/grafana/pkg/infra/metrics"
 	_ "github.com/grafana/grafana/pkg/services/alerting/conditions"
 	_ "github.com/grafana/grafana/pkg/services/alerting/notifiers"
+	"github.com/grafana/grafana/pkg/setting"
+	_ "github.com/grafana/grafana/pkg/tsdb/azuremonitor"
+	_ "github.com/grafana/grafana/pkg/tsdb/cloudwatch"
+	_ "github.com/grafana/grafana/pkg/tsdb/elasticsearch"
 	_ "github.com/grafana/grafana/pkg/tsdb/graphite"
 	_ "github.com/grafana/grafana/pkg/tsdb/influxdb"
-	_ "github.com/grafana/grafana/pkg/tsdb/mqe"
 	_ "github.com/grafana/grafana/pkg/tsdb/mysql"
 	_ "github.com/grafana/grafana/pkg/tsdb/opentsdb"
+	_ "github.com/grafana/grafana/pkg/tsdb/postgres"
 	_ "github.com/grafana/grafana/pkg/tsdb/prometheus"
-	_ "github.com/grafana/grafana/pkg/tsdb/testdata"
+	_ "github.com/grafana/grafana/pkg/tsdb/stackdriver"
+	_ "github.com/grafana/grafana/pkg/tsdb/testdatasource"
 )
 
-var version = "4.1.0"
+var version = "5.0.0"
 var commit = "NA"
+var buildBranch = "master"
 var buildstamp string
-var build_date string
-
-var configFile = flag.String("config", "", "path to config file")
-var homePath = flag.String("homepath", "", "path to grafana install/home path, defaults to working directory")
-var pidFile = flag.String("pidfile", "", "path to pid file")
-var exitChan = make(chan int)
-
-func init() {
-}
 
 func main() {
-	v := flag.Bool("v", false, "prints current version and exits")
-	profile := flag.Bool("profile", false, "Turn on pprof profiling")
-	profilePort := flag.Int("profile-port", 6060, "Define custom port for profiling")
+	var (
+		configFile = flag.String("config", "", "path to config file")
+		homePath   = flag.String("homepath", "", "path to grafana install/home path, defaults to working directory")
+		pidFile    = flag.String("pidfile", "", "path to pid file")
+		packaging  = flag.String("packaging", "unknown", "describes the way Grafana was installed")
+
+		v           = flag.Bool("v", false, "prints current version and exits")
+		profile     = flag.Bool("profile", false, "Turn on pprof profiling")
+		profilePort = flag.Int("profile-port", 6060, "Define custom port for profiling")
+	)
+
 	flag.Parse()
+
 	if *v {
-		fmt.Printf("Version %s (commit: %s)\n", version, commit)
+		fmt.Printf("Version %s (commit: %s, branch: %s)\n", version, commit, buildBranch)
 		os.Exit(0)
 	}
 
 	if *profile {
 		runtime.SetBlockProfileRate(1)
 		go func() {
-			http.ListenAndServe(fmt.Sprintf("localhost:%d", *profilePort), nil)
+			err := http.ListenAndServe(fmt.Sprintf("localhost:%d", *profilePort), nil)
+			if err != nil {
+				panic(err)
+			}
 		}()
 
 		f, err := os.Create("trace.out")
@@ -79,30 +86,48 @@ func main() {
 	setting.BuildVersion = version
 	setting.BuildCommit = commit
 	setting.BuildStamp = buildstampInt64
+	setting.BuildBranch = buildBranch
+	setting.IsEnterprise = extensions.IsEnterprise
+	setting.Packaging = validPackaging(*packaging)
 
-	server := NewGrafanaServer()
-	server.Start()
+	metrics.SetBuildInformation(version, commit, buildBranch)
+
+	server := NewServer(*configFile, *homePath, *pidFile)
+
+	go listenToSystemSignals(server)
+
+	err := server.Run()
+
+	code := server.ExitCode(err)
+	trace.Stop()
+	log.Close()
+
+	os.Exit(code)
 }
 
-func initSql() {
-	sqlstore.NewEngine()
-	sqlstore.EnsureAdminUser()
+func validPackaging(packaging string) string {
+	validTypes := []string{"dev", "deb", "rpm", "docker", "brew", "hosted", "unknown"}
+	for _, vt := range validTypes {
+		if packaging == vt {
+			return packaging
+		}
+	}
+	return "unknown"
 }
 
-func listenToSystemSignals(server models.GrafanaServer) {
+func listenToSystemSignals(server *Server) {
 	signalChan := make(chan os.Signal, 1)
-	ignoreChan := make(chan os.Signal, 1)
-	code := 0
+	sighupChan := make(chan os.Signal, 1)
 
-	signal.Notify(ignoreChan, syscall.SIGHUP)
-	signal.Notify(signalChan, os.Interrupt, os.Kill, syscall.SIGTERM)
+	signal.Notify(sighupChan, syscall.SIGHUP)
+	signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM)
 
-	select {
-	case sig := <-signalChan:
-		// Stops trace if profiling has been enabled
-		trace.Stop()
-		server.Shutdown(0, fmt.Sprintf("system signal: %s", sig))
-	case code = <-exitChan:
-		server.Shutdown(code, "startup error")
+	for {
+		select {
+		case <-sighupChan:
+			log.Reload()
+		case sig := <-signalChan:
+			server.Shutdown(fmt.Sprintf("System signal: %s", sig))
+		}
 	}
 }
