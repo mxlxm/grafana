@@ -169,6 +169,10 @@ func generateNewDashboardUid(sess *DBSession, orgId int64) (string, error) {
 }
 
 func GetDashboard(query *models.GetDashboardQuery) error {
+	if query.Id == 0 && len(query.Slug) == 0 && len(query.Uid) == 0 {
+		return models.ErrDashboardIdentifierNotSet
+	}
+
 	dashboard := models.Dashboard{Slug: query.Slug, OrgId: query.OrgId, Id: query.Id, Uid: query.Uid}
 	has, err := x.Get(&dashboard)
 
@@ -334,13 +338,13 @@ func DeleteDashboard(cmd *models.DeleteDashboardCommand) error {
 
 			for _, id := range dashIds {
 				if err := deleteAlertDefinition(id.Id, sess); err != nil {
-					return nil
+					return err
 				}
 			}
 		}
 
 		if err := deleteAlertDefinition(dashboard.Id, sess); err != nil {
-			return nil
+			return err
 		}
 
 		for _, sql := range deletes {

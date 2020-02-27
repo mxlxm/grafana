@@ -1,11 +1,13 @@
 import React from 'react';
 import { css } from 'emotion';
-import { Button, FormField, VariableSuggestion, DataLinkInput, stylesFactory } from '@grafana/ui';
+import { Button, FormField, DataLinkInput, stylesFactory } from '@grafana/ui';
+import { VariableSuggestion } from '@grafana/data';
 import { DerivedFieldConfig } from '../types';
 
 const getStyles = stylesFactory(() => ({
   firstRow: css`
     display: flex;
+    align-items: baseline;
   `,
   nameField: css`
     flex: 2;
@@ -65,6 +67,9 @@ export const DerivedField = (props: Props) => {
             event.preventDefault();
             onDelete();
           }}
+          className={css`
+            margin-left: 8px;
+          `}
         />
       </div>
 

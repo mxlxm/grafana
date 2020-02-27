@@ -1,9 +1,9 @@
 // Libraries
-import React, { ComponentType } from 'react';
+import React from 'react';
 import { hot } from 'react-hot-loader';
 import { css } from 'emotion';
 import { connect } from 'react-redux';
-import { AutoSizer } from 'react-virtualized';
+import AutoSizer from 'react-virtualized-auto-sizer';
 import memoizeOne from 'memoize-one';
 
 // Services & Utils
@@ -23,33 +23,30 @@ import {
   refreshExplore,
   updateTimeRange,
   toggleGraph,
+  addQueryRow,
 } from './state/actions';
 // Types
 import {
   DataQuery,
-  ExploreStartPageProps,
   DataSourceApi,
   PanelData,
   RawTimeRange,
+  TimeRange,
   GraphSeriesXY,
   TimeZone,
   AbsoluteTimeRange,
+  LoadingState,
+  ExploreMode,
 } from '@grafana/data';
 
-import {
-  ExploreItemState,
-  ExploreUrlState,
-  ExploreId,
-  ExploreUpdateState,
-  ExploreUIState,
-  ExploreMode,
-} from 'app/types/explore';
+import { ExploreItemState, ExploreUrlState, ExploreId, ExploreUpdateState, ExploreUIState } from 'app/types/explore';
 import { StoreState } from 'app/types';
 import {
   ensureQueries,
   DEFAULT_RANGE,
   DEFAULT_UI_STATE,
   getTimeRangeFromUrl,
+  getTimeRange,
   lastUsedDatasourceKeyForOrgId,
 } from 'app/core/utils/explore';
 import { Emitter } from 'app/core/utils/emitter';
@@ -67,11 +64,13 @@ const getStyles = memoizeOne(() => {
       // Is needed for some transition animations to work.
       position: relative;
     `,
+    exploreAddButton: css`
+      margin-top: 1em;
+    `,
   };
 });
 
 interface ExploreProps {
-  StartPage?: ComponentType<ExploreStartPageProps>;
   changeSize: typeof changeSize;
   datasourceInstance: DataSourceApi;
   datasourceMissing: boolean;
@@ -87,11 +86,10 @@ interface ExploreProps {
   scanStopAction: typeof scanStopAction;
   setQueries: typeof setQueries;
   split: boolean;
-  showingStartPage?: boolean;
   queryKeys: string[];
   initialDatasource: string;
   initialQueries: DataQuery[];
-  initialRange: RawTimeRange;
+  initialRange: TimeRange;
   mode: ExploreMode;
   initialUI: ExploreUIState;
   isLive: boolean;
@@ -107,6 +105,7 @@ interface ExploreProps {
   toggleGraph: typeof toggleGraph;
   queryResponse: PanelData;
   originPanelId: number;
+  addQueryRow: typeof addQueryRow;
 }
 
 /**
@@ -201,11 +200,17 @@ export class Explore extends React.PureComponent<ExploreProps> {
     this.onModifyQueries({ type: 'ADD_FILTER_OUT', key, value });
   };
 
+  onClickAddQueryRowButton = () => {
+    const { exploreId, queryKeys } = this.props;
+    this.props.addQueryRow(exploreId, queryKeys.length);
+  };
+
   onModifyQueries = (action: any, index?: number) => {
     const { datasourceInstance } = this.props;
-    if (datasourceInstance && datasourceInstance.modifyQuery) {
-      const modifier = (queries: DataQuery, modification: any) => datasourceInstance.modifyQuery(queries, modification);
-      this.props.modifyQueries(this.props.exploreId, action, index, modifier);
+    if (datasourceInstance?.modifyQuery) {
+      const modifier = (queries: DataQuery, modification: any) =>
+        datasourceInstance.modifyQuery!(queries, modification);
+      this.props.modifyQueries(this.props.exploreId, action, modifier, index);
     }
   };
 
@@ -250,11 +255,9 @@ export class Explore extends React.PureComponent<ExploreProps> {
 
   render() {
     const {
-      StartPage,
       datasourceInstance,
       datasourceMissing,
       exploreId,
-      showingStartPage,
       split,
       queryKeys,
       mode,
@@ -266,9 +269,12 @@ export class Explore extends React.PureComponent<ExploreProps> {
       timeZone,
       queryResponse,
       syncedTimes,
+      isLive,
     } = this.props;
     const exploreClass = split ? 'explore explore-split' : 'explore';
     const styles = getStyles();
+    const StartPage = datasourceInstance?.components?.ExploreStartPage;
+    const showStartPage = !queryResponse || queryResponse.state === LoadingState.NotStarted;
 
     return (
       <div className={exploreClass} ref={this.getRef}>
@@ -277,7 +283,18 @@ export class Explore extends React.PureComponent<ExploreProps> {
         {datasourceInstance && (
           <div className="explore-container">
             <QueryRows exploreEvents={this.exploreEvents} exploreId={exploreId} queryKeys={queryKeys} />
-            <ErrorContainer queryErrors={[queryResponse.error]} />
+            <div className="gf-form">
+              <button
+                aria-label="Add row button"
+                className={`gf-form-label gf-form-label--btn ${styles.exploreAddButton}`}
+                onClick={this.onClickAddQueryRowButton}
+                disabled={isLive}
+              >
+                <i className={'fa fa-fw fa-plus icon-margin-right'} />
+                <span className="btn-title">{'\xA0' + 'Add query'}</span>
+              </button>
+            </div>
+            <ErrorContainer queryErrors={queryResponse.error ? [queryResponse.error] : undefined} />
             <AutoSizer onResize={this.onResize} disableHeight>
               {({ width }) => {
                 if (width === 0) {
@@ -287,7 +304,7 @@ export class Explore extends React.PureComponent<ExploreProps> {
                 return (
                   <main className={`m-t-2 ${styles.logsMain}`} style={{ width }}>
                     <ErrorBoundaryAlert>
-                      {showingStartPage && (
+                      {showStartPage && StartPage && (
                         <div className="grafana-info-box grafana-info-box--max-lg">
                           <StartPage
                             onClickExample={this.onClickExample}
@@ -296,7 +313,7 @@ export class Explore extends React.PureComponent<ExploreProps> {
                           />
                         </div>
                       )}
-                      {!showingStartPage && (
+                      {!showStartPage && (
                         <>
                           {mode === ExploreMode.Metrics && (
                             <ExploreGraphPanel
@@ -316,7 +333,7 @@ export class Explore extends React.PureComponent<ExploreProps> {
                             />
                           )}
                           {mode === ExploreMode.Metrics && (
-                            <TableContainer exploreId={exploreId} onClickCell={this.onClickFilterLabel} />
+                            <TableContainer width={width} exploreId={exploreId} onClickCell={this.onClickFilterLabel} />
                           )}
                           {mode === ExploreMode.Logs && (
                             <LogsContainer
@@ -352,11 +369,9 @@ function mapStateToProps(state: StoreState, { exploreId }: ExploreProps): Partia
   const item: ExploreItemState = explore[exploreId];
   const timeZone = getTimeZone(state.user);
   const {
-    StartPage,
     datasourceInstance,
     datasourceMissing,
     initialized,
-    showingStartPage,
     queryKeys,
     urlState,
     update,
@@ -375,9 +390,11 @@ function mapStateToProps(state: StoreState, { exploreId }: ExploreProps): Partia
     {}) as ExploreUrlState;
   const initialDatasource = datasource || store.get(lastUsedDatasourceKeyForOrgId(state.user.orgId));
   const initialQueries: DataQuery[] = ensureQueriesMemoized(queries);
-  const initialRange = urlRange ? getTimeRangeFromUrlMemoized(urlRange, timeZone).raw : DEFAULT_RANGE;
+  const initialRange = urlRange
+    ? getTimeRangeFromUrlMemoized(urlRange, timeZone)
+    : getTimeRange(timeZone, DEFAULT_RANGE);
 
-  let newMode: ExploreMode;
+  let newMode: ExploreMode | undefined;
 
   if (supportedModes.length) {
     const urlModeIsValid = supportedModes.includes(urlMode);
@@ -391,17 +408,15 @@ function mapStateToProps(state: StoreState, { exploreId }: ExploreProps): Partia
       newMode = supportedModes[0];
     }
   } else {
-    newMode = [ExploreMode.Metrics, ExploreMode.Logs].includes(urlMode) ? urlMode : null;
+    newMode = [ExploreMode.Metrics, ExploreMode.Logs].includes(urlMode) ? urlMode : undefined;
   }
 
   const initialUI = ui || DEFAULT_UI_STATE;
 
   return {
-    StartPage,
     datasourceInstance,
     datasourceMissing,
     initialized,
-    showingStartPage,
     split,
     queryKeys,
     update,
@@ -419,6 +434,7 @@ function mapStateToProps(state: StoreState, { exploreId }: ExploreProps): Partia
     queryResponse,
     originPanelId,
     syncedTimes,
+    timeZone,
   };
 }
 
@@ -432,6 +448,7 @@ const mapDispatchToProps: Partial<ExploreProps> = {
   setQueries,
   updateTimeRange,
   toggleGraph,
+  addQueryRow,
 };
 
 export default hot(module)(

@@ -5,6 +5,7 @@ import { ScopedVars } from './ScopedVars';
 import { LoadingState } from './data';
 import { DataFrame } from './dataFrame';
 import { AbsoluteTimeRange, TimeRange, TimeZone } from './time';
+import { FieldConfigEditorRegistry } from './fieldOverrides';
 
 export type InterpolateFunction = (value: string, scopedVars?: ScopedVars, format?: string | Function) => string;
 
@@ -52,6 +53,7 @@ export interface PanelModel<TOptions = any> {
   id: number;
   options: TOptions;
   pluginVersion?: string;
+  scopedVars?: ScopedVars;
 }
 
 /**
@@ -60,7 +62,7 @@ export interface PanelModel<TOptions = any> {
 export type PanelMigrationHandler<TOptions = any> = (panel: PanelModel<TOptions>) => Partial<TOptions>;
 
 /**
- * Called before a panel is initalized
+ * Called before a panel is initialized
  */
 export type PanelTypeChangedHandler<TOptions = any> = (
   options: Partial<TOptions>,
@@ -71,9 +73,11 @@ export type PanelTypeChangedHandler<TOptions = any> = (
 export class PanelPlugin<TOptions = any> extends GrafanaPlugin<PanelPluginMeta> {
   panel: ComponentType<PanelProps<TOptions>>;
   editor?: ComponentClass<PanelEditorProps<TOptions>>;
+  customFieldConfigs?: FieldConfigEditorRegistry;
   defaults?: TOptions;
   onPanelMigration?: PanelMigrationHandler<TOptions>;
   onPanelTypeChanged?: PanelTypeChangedHandler<TOptions>;
+  noPadding?: boolean;
 
   /**
    * Legacy angular ctrl.  If this exists it will be used instead of the panel
@@ -92,6 +96,11 @@ export class PanelPlugin<TOptions = any> extends GrafanaPlugin<PanelPluginMeta> 
 
   setDefaults(defaults: TOptions) {
     this.defaults = defaults;
+    return this;
+  }
+
+  setNoPadding() {
+    this.noPadding = true;
     return this;
   }
 
@@ -114,11 +123,11 @@ export class PanelPlugin<TOptions = any> extends GrafanaPlugin<PanelPluginMeta> 
     this.onPanelTypeChanged = handler;
     return this;
   }
-}
 
-export interface PanelSize {
-  width: number;
-  height: number;
+  setCustomFieldConfigs(registry: FieldConfigEditorRegistry) {
+    this.customFieldConfigs = registry;
+    return this;
+  }
 }
 
 export interface PanelMenuItem {
@@ -127,6 +136,7 @@ export interface PanelMenuItem {
   iconClassName?: string;
   onClick?: (event: React.MouseEvent<any>) => void;
   shortcut?: string;
+  href?: string;
   subMenu?: PanelMenuItem[];
 }
 
