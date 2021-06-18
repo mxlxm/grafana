@@ -1,11 +1,13 @@
+// +build integration
+
 package sqlstore
 
 import (
+	"context"
 	"testing"
 
-	. "github.com/smartystreets/goconvey/convey"
-
 	"github.com/grafana/grafana/pkg/models"
+	. "github.com/smartystreets/goconvey/convey"
 )
 
 func TestSavingTags(t *testing.T) {
@@ -18,7 +20,7 @@ func TestSavingTags(t *testing.T) {
 			{Key: "server", Value: "server-1"},
 			{Key: "error"},
 		}
-		tags, err := EnsureTagsExist(newSession(), tagPairs)
+		tags, err := EnsureTagsExist(newSession(context.Background()), tagPairs)
 
 		So(err, ShouldBeNil)
 		So(len(tags), ShouldEqual, 4)

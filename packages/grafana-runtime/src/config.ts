@@ -1,35 +1,28 @@
-import extend from 'lodash/extend';
-import { getTheme } from '@grafana/ui';
-import { GrafanaTheme, GrafanaThemeType, PanelPluginMeta, DataSourceInstanceSettings } from '@grafana/data';
+import { merge } from 'lodash';
+import {
+  BuildInfo,
+  createTheme,
+  DataSourceInstanceSettings,
+  FeatureToggles,
+  GrafanaConfig,
+  GrafanaTheme,
+  GrafanaTheme2,
+  LicenseInfo,
+  PanelPluginMeta,
+  systemDateFormats,
+  SystemDateFormatSettings,
+} from '@grafana/data';
 
-export interface BuildInfo {
-  version: string;
-  commit: string;
-  isEnterprise: boolean; // deprecated: use licenseInfo.hasLicense instead
-  env: string;
-  edition: string;
-  latestVersion: string;
-  hasUpdate: boolean;
+export interface AzureSettings {
+  cloud?: string;
+  managedIdentityEnabled: boolean;
 }
 
-interface FeatureToggles {
-  transformations: boolean;
-  inspect: boolean;
-  expressions: boolean;
-  newEdit: boolean;
-  meta: boolean;
-}
-
-interface LicenseInfo {
-  hasLicense: boolean;
-  expiry: number;
-  licenseUrl: string;
-  stateInfo: string;
-}
-
-export class GrafanaBootConfig {
+export class GrafanaBootConfig implements GrafanaConfig {
   datasources: { [str: string]: DataSourceInstanceSettings } = {};
   panels: { [key: string]: PanelPluginMeta } = {};
+  minRefreshInterval = '';
+  appUrl = '';
   appSubUrl = '';
   windowTitlePrefix = '';
   buildInfo: BuildInfo = {} as BuildInfo;
@@ -48,6 +41,7 @@ export class GrafanaBootConfig {
   authProxyEnabled = false;
   exploreEnabled = false;
   ldapEnabled = false;
+  sigV4AuthEnabled = false;
   samlEnabled = false;
   autoAssignOrg = true;
   verifyEmailEnabled = false;
@@ -60,20 +54,46 @@ export class GrafanaBootConfig {
   viewersCanEdit = false;
   editorsCanAdmin = false;
   disableSanitizeHtml = false;
+  liveEnabled = true;
   theme: GrafanaTheme;
+  theme2: GrafanaTheme2;
   pluginsToPreload: string[] = [];
   featureToggles: FeatureToggles = {
-    transformations: false,
-    inspect: false,
-    expressions: false,
-    newEdit: false,
     meta: false,
+    ngalert: false,
+    reportVariables: false,
+    accesscontrol: false,
+    trimDefaults: false,
   };
   licenseInfo: LicenseInfo = {} as LicenseInfo;
-  phantomJSRenderer = false;
+  rendererAvailable = false;
+  rendererVersion = '';
+  http2Enabled = false;
+  dateFormats?: SystemDateFormatSettings;
+  sentry = {
+    enabled: false,
+    dsn: '',
+    customEndpoint: '',
+    sampleRate: 1,
+  };
+  pluginCatalogURL = 'https://grafana.com/grafana/plugins/';
+  pluginAdminEnabled = false;
+  pluginAdminExternalManageEnabled = false;
+  expressionsEnabled = false;
+  customTheme?: any;
+  awsAllowedAuthProviders: string[] = [];
+  awsAssumeRoleEnabled = false;
+  azure: AzureSettings = {
+    managedIdentityEnabled: false,
+  };
+  caching = {
+    enabled: false,
+  };
 
   constructor(options: GrafanaBootConfig) {
-    this.theme = options.bootData.user.lightTheme ? getTheme(GrafanaThemeType.Light) : getTheme(GrafanaThemeType.Dark);
+    const mode = options.bootData.user.lightTheme ? 'light' : 'dark';
+    this.theme2 = createTheme({ colors: { mode } });
+    this.theme = this.theme2.v1;
 
     const defaults = {
       datasources: {},
@@ -82,6 +102,7 @@ export class GrafanaBootConfig {
       newPanelTitle: 'Panel Title',
       playlist_timespan: '1m',
       unsaved_changes_warning: true,
+      appUrl: '',
       appSubUrl: '',
       buildInfo: {
         version: 'v1.0',
@@ -94,7 +115,11 @@ export class GrafanaBootConfig {
       disableSanitizeHtml: false,
     };
 
-    extend(this, defaults, options);
+    merge(this, defaults, options);
+
+    if (this.dateFormats) {
+      systemDateFormats.update(this.dateFormats);
+    }
   }
 }
 
@@ -107,4 +132,9 @@ const bootData = (window as any).grafanaBootData || {
 const options = bootData.settings;
 options.bootData = bootData;
 
+/**
+ * Use this to access the {@link GrafanaBootConfig} for the current running Grafana instance.
+ *
+ * @public
+ */
 export const config = new GrafanaBootConfig(options);

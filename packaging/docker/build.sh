@@ -60,11 +60,11 @@ docker_build () {
   if [ $UBUNTU_BASE = "0" ]; then
     libc="-musl"
     dockerfile="Dockerfile"
-    base_image="${base_arch}alpine:3.10"
+    base_image="${base_arch}alpine:3.13"
   else
     libc=""
     dockerfile="ubuntu.Dockerfile"
-    base_image="${base_arch}ubuntu:19.10"
+    base_image="${base_arch}ubuntu:20.04"
   fi
 
   grafana_tgz="grafana-latest.linux-${arch}${libc}.tar.gz"
@@ -100,12 +100,12 @@ if [ $BUILD_FAST = "0" ]; then
   docker_build "arm64"
 fi
 
-# Tag as 'latest' for official release; otherwise tag as grafana/grafana:master
+# Tag as 'latest' for official release; otherwise tag as grafana/grafana:main
 if echo "$_grafana_tag" | grep -q "^v"; then
   docker_tag_all "latest"
   # Create the expected tag for running the end to end tests successfully
   docker tag "${_docker_repo}:${_grafana_version}${TAG_SUFFIX}" "grafana/grafana-dev:${_grafana_tag}${TAG_SUFFIX}"
 else
-  docker_tag_all "master"
+  docker_tag_all "main"
   docker tag "${_docker_repo}:${_grafana_version}${TAG_SUFFIX}" "grafana/grafana-dev:${_grafana_version}${TAG_SUFFIX}"
 fi

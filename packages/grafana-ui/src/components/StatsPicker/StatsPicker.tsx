@@ -1,24 +1,24 @@
 import React, { PureComponent } from 'react';
 
-import isArray from 'lodash/isArray';
-import difference from 'lodash/difference';
+import { difference } from 'lodash';
 
 import { Select } from '../Select/Select';
 
 import { fieldReducers, SelectableValue } from '@grafana/data';
 
-interface Props {
+export interface Props {
   placeholder?: string;
   onChange: (stats: string[]) => void;
   stats: string[];
-  width?: number;
   allowMultiple?: boolean;
   defaultStat?: string;
+  className?: string;
+  width?: number;
+  menuPlacement?: 'auto' | 'bottom' | 'top';
 }
 
 export class StatsPicker extends PureComponent<Props> {
-  static defaultProps = {
-    width: 12,
+  static defaultProps: Partial<Props> = {
     allowMultiple: false,
   };
 
@@ -35,10 +35,10 @@ export class StatsPicker extends PureComponent<Props> {
 
     const current = fieldReducers.list(stats);
     if (current.length !== stats.length) {
-      const found = current.map(v => v.id);
+      const found = current.map((v) => v.id);
       const notFound = difference(stats, found);
       console.warn('Unknown stats', notFound, stats);
-      onChange(current.map(stat => stat.id));
+      onChange(current.map((stat) => stat.id));
     }
 
     // Make sure there is only one
@@ -55,27 +55,29 @@ export class StatsPicker extends PureComponent<Props> {
 
   onSelectionChange = (item: SelectableValue<string>) => {
     const { onChange } = this.props;
-    if (isArray(item)) {
-      onChange(item.map(v => v.value));
+    if (Array.isArray(item)) {
+      onChange(item.map((v) => v.value));
     } else {
-      onChange(item.value ? [item.value] : []);
+      onChange(item && item.value ? [item.value] : []);
     }
   };
 
   render() {
-    const { width, stats, allowMultiple, defaultStat, placeholder } = this.props;
+    const { stats, allowMultiple, defaultStat, placeholder, className, menuPlacement, width } = this.props;
 
     const select = fieldReducers.selectOptions(stats);
     return (
       <Select
-        width={width}
         value={select.current}
+        className={className}
         isClearable={!defaultStat}
         isMulti={allowMultiple}
+        width={width}
         isSearchable={true}
         options={select.options}
         placeholder={placeholder}
         onChange={this.onSelectionChange}
+        menuPlacement={menuPlacement}
       />
     );
   }

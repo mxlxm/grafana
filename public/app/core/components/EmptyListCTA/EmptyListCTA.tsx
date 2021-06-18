@@ -1,10 +1,11 @@
-import React, { MouseEvent, useContext } from 'react';
-import { CallToActionCard, LinkButton, ThemeContext } from '@grafana/ui';
-import { css } from 'emotion';
+import React, { MouseEvent } from 'react';
+import { css } from '@emotion/css';
+import { CallToActionCard, Icon, IconName, LinkButton } from '@grafana/ui';
+import { selectors } from '@grafana/e2e-selectors';
 
 export interface Props {
   title: string;
-  buttonIcon: string;
+  buttonIcon: IconName;
   buttonLink?: string;
   buttonTitle: string;
   onClick?: (event: MouseEvent) => void;
@@ -38,14 +39,12 @@ const EmptyListCTA: React.FunctionComponent<Props> = ({
   infoBox,
   infoBoxTitle,
 }) => {
-  const theme = useContext(ThemeContext);
-
   const footer = () => {
     return (
       <>
         {proTip ? (
           <span key="proTipFooter">
-            <i className="fa fa-rocket" />
+            <Icon name="rocket" />
             <> ProTip: {proTip} </>
             <a href={proTipLink} target={proTipTarget} className="text-link">
               {proTipLinkTitle}
@@ -79,21 +78,13 @@ const EmptyListCTA: React.FunctionComponent<Props> = ({
       href={buttonLink}
       icon={buttonIcon}
       className={ctaElementClassName}
-      aria-label={`Call to action button ${buttonTitle}`}
+      aria-label={selectors.components.CallToActionCard.button(buttonTitle)}
     >
       {buttonTitle}
     </LinkButton>
   );
 
-  return (
-    <CallToActionCard
-      className={ctaStyle}
-      message={title}
-      footer={footer()}
-      callToActionElement={ctaElement}
-      theme={theme}
-    />
-  );
+  return <CallToActionCard className={ctaStyle} message={title} footer={footer()} callToActionElement={ctaElement} />;
 };
 
 export default EmptyListCTA;

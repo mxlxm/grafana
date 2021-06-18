@@ -1,5 +1,10 @@
-import { Value } from 'slate';
-import { Editor } from '@grafana/slate-react';
+import { Value, Editor as CoreEditor } from 'slate';
+import { SearchFunctionType } from '../utils';
+
+/**
+ * @internal
+ */
+export type SearchFunction = (items: CompletionItem[], prefix: string) => CompletionItem[];
 
 export interface CompletionItemGroup {
   /**
@@ -14,8 +19,15 @@ export interface CompletionItemGroup {
 
   /**
    * If true, match only by prefix (and not mid-word).
+   * @deprecated use searchFunctionType instead
    */
   prefixMatch?: boolean;
+
+  /**
+   * Function type used to create auto-complete list
+   * @alpha
+   */
+  searchFunctionType?: SearchFunctionType;
 
   /**
    * If true, do not filter items in this group based on the search.
@@ -31,6 +43,14 @@ export interface CompletionItemGroup {
 export enum CompletionItemKind {
   GroupTitle = 'GroupTitle',
 }
+
+/**
+ * @internal
+ */
+export type HighlightPart = {
+  start: number;
+  end: number;
+};
 
 export interface CompletionItem {
   /**
@@ -60,8 +80,22 @@ export interface CompletionItem {
   /**
    * A string that should be used when comparing this item
    * with other items. When `falsy` the `label` is used.
+   * @deprecated use sortValue instead
    */
   sortText?: string;
+
+  /**
+   * A string or number that should be used when comparing this
+   * item with other items. When `undefined` then `label` is used.
+   * @alpha
+   */
+  sortValue?: string | number;
+
+  /**
+   * Parts of the label to be highlighted
+   * @internal
+   */
+  highlightParts?: HighlightPart[];
 
   /**
    * A string that should be used when filtering a set of
@@ -98,7 +132,7 @@ export interface TypeaheadInput {
   wrapperClasses: string[];
   labelKey?: string;
   value?: Value;
-  editor?: Editor;
+  editor?: CoreEditor;
 }
 
 export interface SuggestionsState {

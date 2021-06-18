@@ -1,16 +1,16 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import {
-  DashboardInitPhase,
-  DashboardState,
   DashboardAclDTO,
   DashboardInitError,
+  DashboardInitPhase,
+  DashboardState,
   PanelState,
   QueriesToUpdateOnDashboardLoad,
 } from 'app/types';
+import { AngularComponent } from '@grafana/runtime';
 import { EDIT_PANEL_ID } from 'app/core/constants';
 import { processAclItems } from 'app/core/utils/acl';
-import { panelEditorReducer } from '../panel_editor/state/reducers';
-import { panelEditorReducerNew } from '../components/PanelEditor/state/reducers';
+import { panelEditorReducer } from '../components/PanelEditor/state/reducers';
 import { DashboardModel } from './DashboardModel';
 import { PanelModel } from './PanelModel';
 import { PanelPlugin } from '@grafana/data';
@@ -60,15 +60,11 @@ const dashbardSlice = createSlice({
       };
     },
     cleanUpDashboard: (state, action: PayloadAction) => {
-      if (state.getModel()) {
-        state.getModel()!.destroy();
-        state.getModel = () => null;
-      }
-
       state.panels = {};
       state.initPhase = DashboardInitPhase.NotStarted;
       state.isInitSlow = false;
       state.initError = null;
+      state.getModel = () => null;
     },
     setDashboardQueriesToUpdateOnLoad: (state, action: PayloadAction<QueriesToUpdateOnDashboardLoad>) => {
       state.modifiedQueries = action.payload;
@@ -80,9 +76,14 @@ const dashbardSlice = createSlice({
       updatePanelState(state, action.payload.panelId, { plugin: action.payload.plugin });
     },
     cleanUpEditPanel: (state, action: PayloadAction) => {
+      // TODO: refactor, since the state should be mutated by copying only
       delete state.panels[EDIT_PANEL_ID];
     },
+    setPanelAngularComponent: (state: DashboardState, action: PayloadAction<SetPanelAngularComponentPayload>) => {
+      updatePanelState(state, action.payload.panelId, { angularComponent: action.payload.angularComponent });
+    },
     addPanel: (state, action: PayloadAction<PanelModel>) => {
+      // TODO: refactor, since the state should be mutated by copying only
       state.panels[action.payload.id] = { pluginId: action.payload.type };
     },
   },
@@ -101,6 +102,11 @@ export interface PanelModelAndPluginReadyPayload {
   plugin: PanelPlugin;
 }
 
+export interface SetPanelAngularComponentPayload {
+  panelId: number;
+  angularComponent: AngularComponent | null;
+}
+
 export const {
   loadDashboardPermissions,
   dashboardInitFetching,
@@ -114,6 +120,7 @@ export const {
   panelModelAndPluginReady,
   addPanel,
   cleanUpEditPanel,
+  setPanelAngularComponent,
 } = dashbardSlice.actions;
 
 export const dashboardReducer = dashbardSlice.reducer;
@@ -121,5 +128,4 @@ export const dashboardReducer = dashbardSlice.reducer;
 export default {
   dashboard: dashboardReducer,
   panelEditor: panelEditorReducer,
-  panelEditorNew: panelEditorReducerNew,
 };

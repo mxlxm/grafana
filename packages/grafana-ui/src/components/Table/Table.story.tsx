@@ -1,33 +1,41 @@
 import React from 'react';
-import { Table } from './Table';
+import { merge } from 'lodash';
+import { Table } from '@grafana/ui';
 import { withCenteredStory } from '../../utils/storybook/withCenteredStory';
-import { number } from '@storybook/addon-knobs';
-import { useTheme } from '../../themes';
+import { Meta, Story } from '@storybook/react';
+import { useTheme2 } from '../../themes';
 import mdx from './Table.mdx';
 import {
-  applyFieldOverrides,
-  ConfigOverrideRule,
   DataFrame,
-  FieldMatcherID,
   FieldType,
-  GrafanaTheme,
+  GrafanaTheme2,
   MutableDataFrame,
   ThresholdsConfig,
   ThresholdsMode,
+  FieldConfig,
 } from '@grafana/data';
+import { prepDataForStorybook } from '../../utils/storybook/data';
 
 export default {
   title: 'Visualizations/Table',
   component: Table,
   decorators: [withCenteredStory],
   parameters: {
+    controls: {
+      exclude: ['onColumnResize', 'onSortByChange', 'onCellFilterAdded', 'ariaLabel', 'data', 'initialSortBy'],
+    },
     docs: {
       page: mdx,
     },
   },
-};
+  args: {
+    width: 700,
+    height: 500,
+    columnMinWidth: 150,
+  },
+} as Meta;
 
-function buildData(theme: GrafanaTheme, overrides: ConfigOverrideRule[]): DataFrame {
+function buildData(theme: GrafanaTheme2, config: Record<string, FieldConfig>): DataFrame {
   const data = new MutableDataFrame({
     fields: [
       { name: 'Time', type: FieldType.time, values: [] }, // The time field
@@ -39,6 +47,7 @@ function buildData(theme: GrafanaTheme, overrides: ConfigOverrideRule[]): DataFr
           decimals: 0,
           custom: {
             align: 'center',
+            width: 80,
           },
         },
       },
@@ -57,13 +66,19 @@ function buildData(theme: GrafanaTheme, overrides: ConfigOverrideRule[]): DataFr
         values: [],
         config: {
           unit: 'percent',
+          min: 0,
+          max: 100,
           custom: {
-            width: 100,
+            width: 150,
           },
         },
       },
     ],
   });
+
+  for (const field of data.fields) {
+    field.config = merge(field.config, config[field.name]);
+  }
 
   for (let i = 0; i < 1000; i++) {
     data.appendRow([
@@ -75,50 +90,8 @@ function buildData(theme: GrafanaTheme, overrides: ConfigOverrideRule[]): DataFr
     ]);
   }
 
-  return applyFieldOverrides({
-    data: [data],
-    fieldOptions: {
-      overrides,
-      defaults: {},
-    },
-    theme,
-    replaceVariables: (value: string) => value,
-  })[0];
+  return prepDataForStorybook([data], theme)[0];
 }
-
-export const Simple = () => {
-  const theme = useTheme();
-  const width = number('width', 700, {}, 'Props');
-  const data = buildData(theme, []);
-
-  return (
-    <div className="panel-container" style={{ width: 'auto' }}>
-      <Table data={data} height={500} width={width} />
-    </div>
-  );
-};
-
-export const BarGaugeCell = () => {
-  const theme = useTheme();
-  const width = number('width', 700, {}, 'Props');
-  const data = buildData(theme, [
-    {
-      matcher: { id: FieldMatcherID.byName, options: 'Progress' },
-      properties: [
-        { path: 'custom.width', value: '200' },
-        { path: 'custom.displayMode', value: 'gradient-gauge' },
-        { path: 'min', value: '0' },
-        { path: 'max', value: '100' },
-      ],
-    },
-  ]);
-
-  return (
-    <div className="panel-container" style={{ width: 'auto' }}>
-      <Table data={data} height={500} width={width} />
-    </div>
-  );
-};
 
 const defaultThresholds: ThresholdsConfig = {
   steps: [
@@ -134,25 +107,51 @@ const defaultThresholds: ThresholdsConfig = {
   mode: ThresholdsMode.Absolute,
 };
 
-export const ColoredCells = () => {
-  const theme = useTheme();
-  const width = number('width', 750, {}, 'Props');
-  const data = buildData(theme, [
-    {
-      matcher: { id: FieldMatcherID.byName, options: 'Progress' },
-      properties: [
-        { path: 'custom.width', value: '80' },
-        { path: 'custom.displayMode', value: 'color-background' },
-        { path: 'min', value: '0' },
-        { path: 'max', value: '100' },
-        { path: 'thresholds', value: defaultThresholds },
-      ],
-    },
-  ]);
+export const Basic: Story = (args) => {
+  const theme = useTheme2();
+  const data = buildData(theme, {});
 
   return (
     <div className="panel-container" style={{ width: 'auto' }}>
-      <Table data={data} height={500} width={width} />
+      <Table data={data} height={args.height} width={args.width} {...args} />
+    </div>
+  );
+};
+
+export const BarGaugeCell: Story = (args) => {
+  const theme = useTheme2();
+  const data = buildData(theme, {
+    Progress: {
+      custom: {
+        width: 200,
+        displayMode: 'gradient-gauge',
+      },
+      thresholds: defaultThresholds,
+    },
+  });
+
+  return (
+    <div className="panel-container" style={{ width: 'auto' }}>
+      <Table data={data} height={args.height} width={args.width} {...args} />
+    </div>
+  );
+};
+
+export const ColoredCells: Story = (args) => {
+  const theme = useTheme2();
+  const data = buildData(theme, {
+    Progress: {
+      custom: {
+        width: 80,
+        displayMode: 'color-background',
+      },
+      thresholds: defaultThresholds,
+    },
+  });
+
+  return (
+    <div className="panel-container" style={{ width: 'auto' }}>
+      <Table data={data} height={args.height} width={args.width} {...args} />
     </div>
   );
 };

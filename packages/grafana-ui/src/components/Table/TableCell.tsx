@@ -1,39 +1,42 @@
 import React, { FC } from 'react';
 import { Cell } from 'react-table';
 import { Field } from '@grafana/data';
-import { getTextAlign } from './utils';
 import { TableFilterActionCallback } from './types';
 import { TableStyles } from './styles';
 
-interface Props {
+export interface Props {
   cell: Cell;
   field: Field;
   tableStyles: TableStyles;
-  onCellClick?: TableFilterActionCallback;
+  onCellFilterAdded?: TableFilterActionCallback;
+  columnIndex: number;
+  columnCount: number;
 }
 
-export const TableCell: FC<Props> = ({ cell, field, tableStyles, onCellClick }) => {
-  const filterable = field.config.filterable;
+export const TableCell: FC<Props> = ({ cell, field, tableStyles, onCellFilterAdded, columnIndex, columnCount }) => {
   const cellProps = cell.getCellProps();
 
-  let onClick: ((event: React.SyntheticEvent) => void) | undefined = undefined;
-
-  if (filterable && onCellClick) {
-    if (cellProps.style) {
-      cellProps.style.cursor = 'pointer';
-    }
-
-    onClick = () => onCellClick(cell.column.Header as string, cell.value);
+  if (!field.display) {
+    return null;
   }
 
-  const fieldTextAlign = getTextAlign(field);
-  if (fieldTextAlign && cellProps.style) {
-    cellProps.style.textAlign = fieldTextAlign;
+  if (cellProps.style) {
+    cellProps.style.minWidth = cellProps.style.width;
+    cellProps.style.justifyContent = (cell.column as any).justifyContent;
   }
 
-  return (
-    <div {...cellProps} onClick={onClick}>
-      {cell.render('Cell', { field, tableStyles })}
-    </div>
-  );
+  let innerWidth = ((cell.column.width as number) ?? 24) - tableStyles.cellPadding * 2;
+
+  // last child sometimes have extra padding if there is a non overlay scrollbar
+  if (columnIndex === columnCount - 1) {
+    innerWidth -= tableStyles.lastChildExtraPadding;
+  }
+
+  return cell.render('Cell', {
+    field,
+    tableStyles,
+    onCellFilterAdded,
+    cellProps,
+    innerWidth,
+  }) as React.ReactElement;
 };

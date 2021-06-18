@@ -1,45 +1,88 @@
-import { storiesOf } from '@storybook/react';
-import { Button, LinkButton } from './Button';
-// @ts-ignore
-import withPropsCombinations from 'react-storybook-addon-props-combinations';
-import { action } from '@storybook/addon-actions';
-import { ThemeableCombinationsRowRenderer } from '../../utils/storybook/CombinationsRowRenderer';
-import { boolean } from '@storybook/addon-knobs';
-import { getIconKnob } from '../../utils/storybook/knobs';
+import React from 'react';
+import { Story, Meta } from '@storybook/react';
+import { allButtonVariants, allButtonFills, Button, ButtonProps } from './Button';
+import mdx from './Button.mdx';
+import { HorizontalGroup, VerticalGroup } from '../Layout/Layout';
+import { ButtonGroup } from './ButtonGroup';
+import { ComponentSize } from '../../types/size';
+import { Card } from '../Card/Card';
 
-const ButtonStories = storiesOf('General/Button', module);
+export default {
+  title: 'Buttons/Button',
+  component: Button,
+  parameters: {
+    docs: {
+      page: mdx,
+    },
+  },
+} as Meta;
 
-const defaultProps = {
-  onClick: [action('Button clicked')],
-  children: ['Click click!'],
+export const Variants: Story<ButtonProps> = () => {
+  const sizes: ComponentSize[] = ['lg', 'md', 'sm'];
+  return (
+    <VerticalGroup>
+      {allButtonFills.map((buttonFill) => (
+        <VerticalGroup key={buttonFill}>
+          <HorizontalGroup spacing="lg">
+            {allButtonVariants.map((variant) => (
+              <VerticalGroup spacing="lg" key={`${buttonFill}-${variant}`}>
+                {sizes.map((size) => (
+                  <Button variant={variant} fill={buttonFill} size={size} key={size}>
+                    {variant} {size}
+                  </Button>
+                ))}
+                <Button variant={variant} fill={buttonFill} disabled>
+                  {variant} disabled
+                </Button>
+              </VerticalGroup>
+            ))}
+          </HorizontalGroup>
+          <div style={{ padding: '20px 0', width: '100%' }} />
+        </VerticalGroup>
+      ))}
+      <HorizontalGroup spacing="lg">
+        <div>With icon and text</div>
+        <Button icon="cloud" size="sm">
+          Configure
+        </Button>
+        <Button icon="cloud">Configure</Button>
+        <Button icon="cloud" size="lg">
+          Configure
+        </Button>
+      </HorizontalGroup>
+      <div />
+      <HorizontalGroup spacing="lg">
+        <div>With icon only</div>
+        <Button icon="cloud" size="sm" />
+        <Button icon="cloud" size="md" />
+        <Button icon="cloud" size="lg" />
+      </HorizontalGroup>
+      <div />
+      <Button icon="plus" fullWidth>
+        Button with fullWidth
+      </Button>
+      <div />
+      <HorizontalGroup spacing="lg">
+        <div>Inside ButtonGroup</div>
+        <ButtonGroup>
+          <Button icon="sync">Run query</Button>
+          <Button icon="angle-down" />
+        </ButtonGroup>
+      </HorizontalGroup>
+      <Card heading="Button inside card">
+        <Card.Actions>
+          <>
+            {allButtonVariants.map((variant) => (
+              <Button variant={variant} key={variant}>
+                {variant}
+              </Button>
+            ))}
+            <Button variant="primary" disabled>
+              Disabled
+            </Button>
+          </>
+        </Card.Actions>
+      </Card>
+    </VerticalGroup>
+  );
 };
-
-const variants = {
-  size: ['xs', 'sm', 'md', 'lg'],
-  variant: ['primary', 'secondary', 'danger', 'inverse', 'transparent', 'link'],
-};
-const combinationOptions = {
-  CombinationRenderer: ThemeableCombinationsRowRenderer,
-};
-
-const renderButtonStory = (buttonComponent: typeof Button | typeof LinkButton) => {
-  const isDisabled = boolean('Disable button', false);
-  return withPropsCombinations(
-    buttonComponent,
-    { ...variants, ...defaultProps, disabled: [isDisabled] },
-    combinationOptions
-  )();
-};
-
-ButtonStories.add('as button element', () => renderButtonStory(Button));
-
-ButtonStories.add('as link element', () => renderButtonStory(LinkButton));
-
-ButtonStories.add('with icon', () => {
-  const icon = getIconKnob();
-  return withPropsCombinations(
-    Button,
-    { ...variants, ...defaultProps, icon: [icon && `fa fa-${icon}`] },
-    combinationOptions
-  )();
-});

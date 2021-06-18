@@ -8,9 +8,10 @@ import (
 
 	"github.com/grafana/grafana/pkg/components/null"
 	"github.com/grafana/grafana/pkg/components/simplejson"
-	"github.com/grafana/grafana/pkg/tsdb/elasticsearch/client"
+	"github.com/grafana/grafana/pkg/plugins"
+	es "github.com/grafana/grafana/pkg/tsdb/elasticsearch/client"
+	"github.com/stretchr/testify/assert"
 
-	"github.com/grafana/grafana/pkg/tsdb"
 	. "github.com/smartystreets/goconvey/convey"
 )
 
@@ -865,6 +866,80 @@ func TestResponseParser(t *testing.T) {
 			So(seriesThree.Points[1][1].Float64, ShouldEqual, 2000)
 		})
 
+		Convey("Terms with two bucket_script", func() {
+			targets := map[string]string{
+				"A": `{
+					"timeField": "@timestamp",
+					"metrics": [
+						{ "id": "1", "type": "sum", "field": "@value" },
+            			{ "id": "3", "type": "max", "field": "@value" },
+            			{
+              				"id": "4",
+              				"field": "select field",
+              				"pipelineVariables": [{ "name": "var1", "pipelineAgg": "1" }, { "name": "var2", "pipelineAgg": "3" }],
+              				"settings": { "script": "params.var1 * params.var2" },
+              				"type": "bucket_script"
+						},
+            			{
+							"id": "5",
+							"field": "select field",
+							"pipelineVariables": [{ "name": "var1", "pipelineAgg": "1" }, { "name": "var2", "pipelineAgg": "3" }],
+							"settings": { "script": "params.var1 * params.var2 * 2" },
+							"type": "bucket_script"
+					  }
+					],
+          "bucketAggs": [{ "type": "terms", "field": "@timestamp", "id": "2" }]
+				}`,
+			}
+			response := `{
+				"responses": [
+					{
+						"aggregations": {
+						"2": {
+							"buckets": [
+							{
+								"1": { "value": 2 },
+								"3": { "value": 3 },
+								"4": { "value": 6 },
+								"5": { "value": 24 },
+								"doc_count": 60,
+								"key": 1000
+							},
+							{
+								"1": { "value": 3 },
+								"3": { "value": 4 },
+								"4": { "value": 12 },
+								"5": { "value": 48 },
+								"doc_count": 60,
+								"key": 2000
+							}
+							]
+						}
+						}
+					}
+				]
+			}`
+			rp, err := newResponseParserForTest(targets, response)
+			So(err, ShouldBeNil)
+			result, err := rp.getTimeSeries()
+			So(err, ShouldBeNil)
+			So(result.Results, ShouldHaveLength, 1)
+			queryRes := result.Results["A"]
+			So(queryRes, ShouldNotBeNil)
+			So(queryRes.Tables[0].Rows, ShouldHaveLength, 2)
+			So(queryRes.Tables[0].Columns[1].Text, ShouldEqual, "Sum")
+			So(queryRes.Tables[0].Columns[2].Text, ShouldEqual, "Max")
+			So(queryRes.Tables[0].Columns[3].Text, ShouldEqual, "params.var1 * params.var2")
+			So(queryRes.Tables[0].Columns[4].Text, ShouldEqual, "params.var1 * params.var2 * 2")
+			So(queryRes.Tables[0].Rows[0][1].(null.Float).Float64, ShouldEqual, 2)
+			So(queryRes.Tables[0].Rows[0][2].(null.Float).Float64, ShouldEqual, 3)
+			So(queryRes.Tables[0].Rows[0][3].(null.Float).Float64, ShouldEqual, 6)
+			So(queryRes.Tables[0].Rows[0][4].(null.Float).Float64, ShouldEqual, 24)
+			So(queryRes.Tables[0].Rows[1][1].(null.Float).Float64, ShouldEqual, 3)
+			So(queryRes.Tables[0].Rows[1][2].(null.Float).Float64, ShouldEqual, 4)
+			So(queryRes.Tables[0].Rows[1][3].(null.Float).Float64, ShouldEqual, 12)
+			So(queryRes.Tables[0].Rows[1][4].(null.Float).Float64, ShouldEqual, 48)
+		})
 		// Convey("Raw documents query", func() {
 		// 	targets := map[string]string{
 		// 		"A": `{
@@ -918,6 +993,80 @@ func TestResponseParser(t *testing.T) {
 		// 	So(rows[0][2].(null.Float).Float64, ShouldEqual, 3000)
 		// })
 	})
+
+	t.Run("With top_metrics", func(t *testing.T) {
+		targets := map[string]string{
+			"A": `{
+				"timeField": "@timestamp",
+				"metrics": [
+					{
+						"type": "top_metrics",
+						"settings": {
+							"order": "desc",
+							"orderBy": "@timestamp",
+							"metrics": ["@value", "@anotherValue"]
+						},
+						"id": "1"
+					}
+				],
+				"bucketAggs": [{ "type": "date_histogram", "field": "@timestamp", "id": "3" }]
+			}`,
+		}
+		response := `{
+			"responses": [{
+				"aggregations": {
+					"3": {
+						"buckets": [
+							{
+								"key": 1609459200000,
+								"key_as_string": "2021-01-01T00:00:00.000Z",
+								"1": {
+									"top": [
+										{ "sort": ["2021-01-01T00:00:00.000Z"], "metrics": { "@value": 1, "@anotherValue": 2 } }
+									]
+								}
+							},
+							{
+								"key": 1609459210000,
+								"key_as_string": "2021-01-01T00:00:10.000Z",
+								"1": {
+									"top": [
+										{ "sort": ["2021-01-01T00:00:10.000Z"], "metrics": { "@value": 1, "@anotherValue": 2 } }
+									]
+								}
+							}
+						]			
+					}
+				}
+			}]
+		}`
+		rp, err := newResponseParserForTest(targets, response)
+		assert.Nil(t, err)
+		result, err := rp.getTimeSeries()
+		assert.Nil(t, err)
+		assert.Len(t, result.Results, 1)
+
+		queryRes := result.Results["A"]
+		assert.NotNil(t, queryRes)
+		assert.Len(t, queryRes.Series, 2)
+
+		seriesOne := queryRes.Series[0]
+		assert.Equal(t, seriesOne.Name, "Top Metrics @value")
+		assert.Len(t, seriesOne.Points, 2)
+		assert.Equal(t, seriesOne.Points[0][0].Float64, 1.)
+		assert.Equal(t, seriesOne.Points[0][1].Float64, 1609459200000.)
+		assert.Equal(t, seriesOne.Points[1][0].Float64, 1.)
+		assert.Equal(t, seriesOne.Points[1][1].Float64, 1609459210000.)
+
+		seriesTwo := queryRes.Series[1]
+		assert.Equal(t, seriesTwo.Name, "Top Metrics @anotherValue")
+		assert.Len(t, seriesTwo.Points, 2)
+
+		assert.Equal(t, seriesTwo.Points[0][0].Float64, 2.)
+		assert.Equal(t, seriesTwo.Points[0][1].Float64, 1609459200000.)
+		assert.Equal(t, seriesTwo.Points[1][0].Float64, 2.)
+		assert.Equal(t, seriesTwo.Points[1][1].Float64, 1609459210000.)
+	})
 }
 
 func newResponseParserForTest(tsdbQueries map[string]string, responseBody string) (*responseParser, error) {
@@ -925,9 +1074,10 @@ func newResponseParserForTest(tsdbQueries map[string]string, responseBody string
 	to := time.Date(2018, 5, 15, 17, 55, 0, 0, time.UTC)
 	fromStr := fmt.Sprintf("%d", from.UnixNano()/int64(time.Millisecond))
 	toStr := fmt.Sprintf("%d", to.UnixNano()/int64(time.Millisecond))
-	tsdbQuery := &tsdb.TsdbQuery{
-		Queries:   []*tsdb.Query{},
-		TimeRange: tsdb.NewTimeRange(fromStr, toStr),
+	timeRange := plugins.NewDataTimeRange(fromStr, toStr)
+	tsdbQuery := plugins.DataQuery{
+		Queries:   []plugins.DataSubQuery{},
+		TimeRange: &timeRange,
 	}
 
 	for refID, tsdbQueryBody := range tsdbQueries {
@@ -936,9 +1086,9 @@ func newResponseParserForTest(tsdbQueries map[string]string, responseBody string
 			return nil, err
 		}
 
-		tsdbQuery.Queries = append(tsdbQuery.Queries, &tsdb.Query{
+		tsdbQuery.Queries = append(tsdbQuery.Queries, plugins.DataSubQuery{
 			Model: tsdbQueryJSON,
-			RefId: refID,
+			RefID: refID,
 		})
 	}
 

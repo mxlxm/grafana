@@ -2,89 +2,82 @@ package plugins
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
-	"strings"
 
-	m "github.com/grafana/grafana/pkg/models"
+	"github.com/grafana/grafana/pkg/models"
 	"github.com/grafana/grafana/pkg/plugins/backendplugin"
-	"github.com/grafana/grafana/pkg/setting"
+)
+
+const (
+	PluginTypeApp       = "app"
+	PluginTypeDashboard = "dashboard"
 )
 
 var (
-	PluginTypeApp        = "app"
-	PluginTypeDatasource = "datasource"
-	PluginTypePanel      = "panel"
-	PluginTypeDashboard  = "dashboard"
-)
-
-type PluginState string
-
-var (
-	PluginStateAlpha PluginState = "alpha"
-	PluginStateBeta  PluginState = "beta"
+	ErrInstallCorePlugin           = errors.New("cannot install a Core plugin")
+	ErrUninstallCorePlugin         = errors.New("cannot uninstall a Core plugin")
+	ErrUninstallOutsideOfPluginDir = errors.New("cannot uninstall a plugin outside")
+	ErrPluginNotInstalled          = errors.New("plugin is not installed")
 )
 
 type PluginNotFoundError struct {
-	PluginId string
+	PluginID string
 }
 
 func (e PluginNotFoundError) Error() string {
-	return fmt.Sprintf("Plugin with id %s not found", e.PluginId)
+	return fmt.Sprintf("plugin with ID '%s' not found", e.PluginID)
 }
 
+type DuplicatePluginError struct {
+	PluginID          string
+	ExistingPluginDir string
+}
+
+func (e DuplicatePluginError) Error() string {
+	return fmt.Sprintf("plugin with ID '%s' already exists in '%s'", e.PluginID, e.ExistingPluginDir)
+}
+
+func (e DuplicatePluginError) Is(err error) bool {
+	// nolint:errorlint
+	_, ok := err.(DuplicatePluginError)
+	return ok
+}
+
+// PluginLoader can load a plugin.
 type PluginLoader interface {
-	Load(decoder *json.Decoder, pluginDir string, backendPluginManager backendplugin.Manager) error
+	// Load loads a plugin and returns it.
+	Load(decoder *json.Decoder, base *PluginBase, backendPluginManager backendplugin.Manager) (interface{}, error)
 }
 
+// PluginBase is the base plugin type.
 type PluginBase struct {
-	Type         string             `json:"type"`
-	Name         string             `json:"name"`
-	Id           string             `json:"id"`
-	Info         PluginInfo         `json:"info"`
-	Dependencies PluginDependencies `json:"dependencies"`
-	Includes     []*PluginInclude   `json:"includes"`
-	Module       string             `json:"module"`
-	BaseUrl      string             `json:"baseUrl"`
-	Category     string             `json:"category"`
-	HideFromList bool               `json:"hideFromList,omitempty"`
-	Preload      bool               `json:"preload"`
-	State        PluginState        `json:"state,omitempty"`
+	Type         string                `json:"type"`
+	Name         string                `json:"name"`
+	Id           string                `json:"id"`
+	Info         PluginInfo            `json:"info"`
+	Dependencies PluginDependencies    `json:"dependencies"`
+	Includes     []*PluginInclude      `json:"includes"`
+	Module       string                `json:"module"`
+	BaseUrl      string                `json:"baseUrl"`
+	Category     string                `json:"category"`
+	HideFromList bool                  `json:"hideFromList,omitempty"`
+	Preload      bool                  `json:"preload"`
+	State        PluginState           `json:"state,omitempty"`
+	Signature    PluginSignatureStatus `json:"signature"`
+	Backend      bool                  `json:"backend"`
 
-	IncludedInAppId string `json:"-"`
-	PluginDir       string `json:"-"`
-	DefaultNavUrl   string `json:"-"`
-	IsCorePlugin    bool   `json:"-"`
+	IncludedInAppId string              `json:"-"`
+	PluginDir       string              `json:"-"`
+	DefaultNavUrl   string              `json:"-"`
+	IsCorePlugin    bool                `json:"-"`
+	SignatureType   PluginSignatureType `json:"-"`
+	SignatureOrg    string              `json:"-"`
 
 	GrafanaNetVersion   string `json:"-"`
 	GrafanaNetHasUpdate bool   `json:"-"`
-}
 
-func (pb *PluginBase) registerPlugin(pluginDir string) error {
-	if _, exists := Plugins[pb.Id]; exists {
-		return fmt.Errorf("Plugin with ID %q already exists", pb.Id)
-	}
-
-	if !strings.HasPrefix(pluginDir, setting.StaticRootPath) {
-		plog.Info("Registering plugin", "name", pb.Name)
-	}
-
-	if len(pb.Dependencies.Plugins) == 0 {
-		pb.Dependencies.Plugins = []PluginDependencyItem{}
-	}
-
-	if pb.Dependencies.GrafanaVersion == "" {
-		pb.Dependencies.GrafanaVersion = "*"
-	}
-
-	for _, include := range pb.Includes {
-		if include.Role == "" {
-			include.Role = m.ROLE_VIEWER
-		}
-	}
-
-	pb.PluginDir = pluginDir
-	Plugins[pb.Id] = pb
-	return nil
+	Root *PluginBase
 }
 
 type PluginDependencies struct {
@@ -93,14 +86,15 @@ type PluginDependencies struct {
 }
 
 type PluginInclude struct {
-	Name       string     `json:"name"`
-	Path       string     `json:"path"`
-	Type       string     `json:"type"`
-	Component  string     `json:"component"`
-	Role       m.RoleType `json:"role"`
-	AddToNav   bool       `json:"addToNav"`
-	DefaultNav bool       `json:"defaultNav"`
-	Slug       string     `json:"slug"`
+	Name       string          `json:"name"`
+	Path       string          `json:"path"`
+	Type       string          `json:"type"`
+	Component  string          `json:"component"`
+	Role       models.RoleType `json:"role"`
+	AddToNav   bool            `json:"addToNav"`
+	DefaultNav bool            `json:"defaultNav"`
+	Slug       string          `json:"slug"`
+	Icon       string          `json:"icon"`
 
 	Id string `json:"-"`
 }
@@ -154,12 +148,4 @@ type EnabledPlugins struct {
 	Panels      []*PanelPlugin
 	DataSources map[string]*DataSourcePlugin
 	Apps        []*AppPlugin
-}
-
-func NewEnabledPlugins() EnabledPlugins {
-	return EnabledPlugins{
-		Panels:      make([]*PanelPlugin, 0),
-		DataSources: make(map[string]*DataSourcePlugin),
-		Apps:        make([]*AppPlugin, 0),
-	}
 }

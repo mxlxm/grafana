@@ -1,75 +1,76 @@
-import React, { PureComponent, MouseEvent } from 'react';
+import React, { FC } from 'react';
+import { css } from '@emotion/css';
+import { Button, Field, Form, HorizontalGroup, Input, LinkButton } from '@grafana/ui';
+
 import config from 'app/core/config';
-import { Button, LinkButton } from '@grafana/ui';
-import { ChangePasswordFields } from 'app/core/utils/UserProvider';
-import { PasswordInput } from 'app/core/components/PasswordInput/PasswordInput';
+import { UserDTO } from 'app/types';
+import { ChangePasswordFields } from './types';
 
 export interface Props {
+  user: UserDTO;
   isSaving: boolean;
   onChangePassword: (payload: ChangePasswordFields) => void;
 }
 
-export interface State {
-  oldPassword: string;
-  newPassword: string;
-  confirmNew: string;
-}
+export const ChangePasswordForm: FC<Props> = ({ user, onChangePassword, isSaving }) => {
+  const { ldapEnabled, authProxyEnabled, disableLoginForm } = config;
+  const authSource = user.authLabels?.length && user.authLabels[0];
 
-export class ChangePasswordForm extends PureComponent<Props, State> {
-  state: State = {
-    oldPassword: '',
-    newPassword: '',
-    confirmNew: '',
-  };
-
-  onOldPasswordChange = (oldPassword: string) => {
-    this.setState({ oldPassword });
-  };
-
-  onNewPasswordChange = (newPassword: string) => {
-    this.setState({ newPassword });
-  };
-
-  onConfirmPasswordChange = (confirmNew: string) => {
-    this.setState({ confirmNew });
-  };
-
-  onSubmitChangePassword = (event: MouseEvent<HTMLInputElement>) => {
-    event.preventDefault();
-    this.props.onChangePassword({ ...this.state });
-  };
-
-  render() {
-    const { oldPassword, newPassword, confirmNew } = this.state;
-    const { isSaving } = this.props;
-    const { ldapEnabled, authProxyEnabled } = config;
-
-    if (ldapEnabled || authProxyEnabled) {
-      return <p>You cannot change password when ldap or auth proxy authentication is enabled.</p>;
-    }
-
-    return (
-      <form name="userForm" className="gf-form-group">
-        <div className="gf-form max-width-30">
-          <PasswordInput label="Old Password" onChange={this.onOldPasswordChange} value={oldPassword} />
-        </div>
-        <div className="gf-form max-width-30">
-          <PasswordInput label="New Password" onChange={this.onNewPasswordChange} value={newPassword} />
-        </div>
-        <div className="gf-form max-width-30">
-          <PasswordInput label="Confirm Password" onChange={this.onConfirmPasswordChange} value={confirmNew} />
-        </div>
-        <div className="gf-form-button-row">
-          <Button variant="primary" onClick={this.onSubmitChangePassword} disabled={isSaving}>
-            Change Password
-          </Button>
-          <LinkButton variant="transparent" href={`${config.appSubUrl}/profile`}>
-            Cancel
-          </LinkButton>
-        </div>
-      </form>
-    );
+  if (ldapEnabled || authProxyEnabled) {
+    return <p>You cannot change password when LDAP or auth proxy authentication is enabled.</p>;
   }
-}
+  if (authSource && disableLoginForm) {
+    return <p>Password cannot be changed here.</p>;
+  }
 
-export default ChangePasswordForm;
+  return (
+    <div
+      className={css`
+        max-width: 400px;
+      `}
+    >
+      <Form onSubmit={onChangePassword}>
+        {({ register, errors, getValues }) => {
+          return (
+            <>
+              <Field label="Old password" invalid={!!errors.oldPassword} error={errors?.oldPassword?.message}>
+                <Input type="password" {...register('oldPassword', { required: 'Old password is required' })} />
+              </Field>
+
+              <Field label="New password" invalid={!!errors.newPassword} error={errors?.newPassword?.message}>
+                <Input
+                  type="password"
+                  {...register('newPassword', {
+                    required: 'New password is required',
+                    validate: {
+                      confirm: (v) => v === getValues().confirmNew || 'Passwords must match',
+                      old: (v) => v !== getValues().oldPassword || `New password can't be the same as the old one.`,
+                    },
+                  })}
+                />
+              </Field>
+
+              <Field label="Confirm password" invalid={!!errors.confirmNew} error={errors?.confirmNew?.message}>
+                <Input
+                  type="password"
+                  {...register('confirmNew', {
+                    required: 'New password confirmation is required',
+                    validate: (v) => v === getValues().newPassword || 'Passwords must match',
+                  })}
+                />
+              </Field>
+              <HorizontalGroup>
+                <Button variant="primary" disabled={isSaving}>
+                  Change Password
+                </Button>
+                <LinkButton variant="secondary" href={`${config.appSubUrl}/profile`} fill="outline">
+                  Cancel
+                </LinkButton>
+              </HorizontalGroup>
+            </>
+          );
+        }}
+      </Form>
+    </div>
+  );
+};

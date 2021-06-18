@@ -1,108 +1,96 @@
-import React, { PureComponent } from 'react';
-
-import MappingRow from './MappingRow';
-import { MappingType, ValueMapping } from '@grafana/data';
+import React, { useCallback, useMemo, useState } from 'react';
+import { GrafanaTheme2, MappingType, ValueMapping } from '@grafana/data';
 import { Button } from '../Button/Button';
-import { PanelOptionsGroup } from '../PanelOptionsGroup/PanelOptionsGroup';
+import { Modal } from '../Modal/Modal';
+import { useStyles2 } from '../../themes';
+import { css } from '@emotion/css';
+import { buildEditRowModels, editModelToSaveModel, ValueMappingsEditorModal } from './ValueMappingsEditorModal';
+import { Icon } from '../Icon/Icon';
+import { VerticalGroup } from '../Layout/Layout';
+import { ColorPicker } from '../ColorPicker/ColorPicker';
 
 export interface Props {
-  valueMappings?: ValueMapping[];
+  value: ValueMapping[];
   onChange: (valueMappings: ValueMapping[]) => void;
 }
 
-interface State {
-  valueMappings: ValueMapping[];
-  nextIdToAdd: number;
-}
+export const ValueMappingsEditor = React.memo(({ value, onChange }: Props) => {
+  const styles = useStyles2(getStyles);
+  const [isEditorOpen, setIsEditorOpen] = useState(false);
+  const onCloseEditor = useCallback(() => {
+    setIsEditorOpen(false);
+  }, [setIsEditorOpen]);
 
-export class ValueMappingsEditor extends PureComponent<Props, State> {
-  constructor(props: Props) {
-    super(props);
+  const rows = useMemo(() => buildEditRowModels(value), [value]);
 
-    const mappings = props.valueMappings || [];
+  const onChangeColor = useCallback(
+    (color: string, index: number) => {
+      rows[index].result.color = color;
+      onChange(editModelToSaveModel(rows));
+    },
+    [rows, onChange]
+  );
 
-    this.state = {
-      valueMappings: mappings,
-      nextIdToAdd: mappings.length > 0 ? this.getMaxIdFromValueMappings(mappings) : 1,
-    };
-  }
+  return (
+    <VerticalGroup>
+      <table className={styles.compactTable}>
+        <tbody>
+          {rows.map((row, rowIndex) => (
+            <tr key={rowIndex.toString()}>
+              <td>
+                {row.type === MappingType.ValueToText && row.key}
+                {row.type === MappingType.RangeToText && (
+                  <span>
+                    [{row.from} - {row.to}]
+                  </span>
+                )}
+                {row.type === MappingType.SpecialValue && row.specialMatch}
+              </td>
+              <td>
+                <Icon name="arrow-right" />
+              </td>
+              <td>{row.result.text}</td>
+              <td>
+                {row.result.color && (
+                  <ColorPicker
+                    color={row.result.color}
+                    onChange={(color) => onChangeColor(color, rowIndex)}
+                    enableNamedColors={true}
+                  />
+                )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
 
-  getMaxIdFromValueMappings(mappings: ValueMapping[]) {
-    return (
-      Math.max.apply(
-        null,
-        mappings.map(mapping => mapping.id).map(m => m)
-      ) + 1
-    );
-  }
+      <Button variant="secondary" size="sm" fullWidth onClick={() => setIsEditorOpen(true)}>
+        {rows.length > 0 && <span>Edit value mappings</span>}
+        {rows.length === 0 && <span>Add value mappings</span>}
+      </Button>
+      <Modal
+        isOpen={isEditorOpen}
+        title="Value mappings"
+        onDismiss={onCloseEditor}
+        className={styles.modal}
+        closeOnBackdropClick={false}
+      >
+        <ValueMappingsEditorModal value={value} onChange={onChange} onClose={onCloseEditor} />
+      </Modal>
+    </VerticalGroup>
+  );
+});
 
-  onAddMapping = () =>
-    this.setState(prevState => ({
-      valueMappings: [
-        ...prevState.valueMappings,
-        {
-          id: prevState.nextIdToAdd,
-          operator: '',
-          value: '',
-          text: '',
-          type: MappingType.ValueToText,
-          from: '',
-          to: '',
-        },
-      ],
-      nextIdToAdd: prevState.nextIdToAdd + 1,
-    }));
+ValueMappingsEditor.displayName = 'ValueMappingsEditor';
 
-  onRemoveMapping = (id: number) => {
-    this.setState(
-      prevState => ({
-        valueMappings: prevState.valueMappings.filter(m => {
-          return m.id !== id;
-        }),
-      }),
-      () => {
-        this.props.onChange(this.state.valueMappings);
-      }
-    );
-  };
-
-  updateGauge = (mapping: ValueMapping) => {
-    this.setState(
-      prevState => ({
-        valueMappings: prevState.valueMappings.map(m => {
-          if (m.id === mapping.id) {
-            return { ...mapping };
-          }
-
-          return m;
-        }),
-      }),
-      () => {
-        this.props.onChange(this.state.valueMappings);
-      }
-    );
-  };
-
-  render() {
-    const { valueMappings } = this.state;
-
-    return (
-      <PanelOptionsGroup title="Value mappings">
-        <div>
-          {valueMappings.length > 0 &&
-            valueMappings.map((valueMapping, index) => (
-              <MappingRow
-                key={`${valueMapping.text}-${index}`}
-                valueMapping={valueMapping}
-                updateValueMapping={this.updateGauge}
-                removeValueMapping={() => this.onRemoveMapping(valueMapping.id)}
-              />
-            ))}
-          <Button variant="inverse" icon="fa fa-plus" onClick={this.onAddMapping}>
-            Add mapping
-          </Button>
-        </div>
-      </PanelOptionsGroup>
-    );
-  }
-}
+export const getStyles = (theme: GrafanaTheme2) => ({
+  modal: css({
+    width: '980px',
+  }),
+  compactTable: css({
+    width: '100%',
+    'tbody td': {
+      padding: theme.spacing(0.5),
+    },
+  }),
+});

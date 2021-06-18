@@ -10,36 +10,28 @@ exports[`Render should render component 1`] = `
     >
       External group sync
     </h3>
-    <Component
+    <Tooltip
       content="Sync LDAP or OAuth groups with your Grafana teams."
       placement="auto"
     >
-      <div
-        className="page-sub-heading-icon"
-      >
-        <i
-          className="gicon gicon-question gicon--has-hover"
-        />
-      </div>
-    </Component>
+      <Icon
+        className="icon--has-hover page-sub-heading-icon"
+        name="question-circle"
+      />
+    </Tooltip>
     <div
       className="page-action-bar__spacer"
     />
   </div>
-  <Component
+  <SlideDown
     in={false}
   >
     <div
       className="cta-form"
     >
-      <button
-        className="cta-form__close btn btn-transparent"
+      <CloseButton
         onClick={[Function]}
-      >
-        <i
-          className="fa fa-close"
-        />
-      </button>
+      />
       <h5>
         Add External Group
       </h5>
@@ -61,19 +53,18 @@ exports[`Render should render component 1`] = `
         <div
           className="gf-form"
         >
-          <button
-            className="btn btn-primary gf-form-btn"
+          <Button
             disabled={true}
             type="submit"
           >
             Add group
-          </button>
+          </Button>
         </div>
       </form>
     </div>
-  </Component>
+  </SlideDown>
   <EmptyListCTA
-    buttonIcon="gicon gicon-team"
+    buttonIcon="users-alt"
     buttonTitle="Add Group"
     onClick={[Function]}
     proTip="Sync LDAP or OAuth groups with your Grafana teams."
@@ -95,45 +86,37 @@ exports[`Render should render groups table 1`] = `
     >
       External group sync
     </h3>
-    <Component
+    <Tooltip
       content="Sync LDAP or OAuth groups with your Grafana teams."
       placement="auto"
     >
-      <div
-        className="page-sub-heading-icon"
-      >
-        <i
-          className="gicon gicon-question gicon--has-hover"
-        />
-      </div>
-    </Component>
+      <Icon
+        className="icon--has-hover page-sub-heading-icon"
+        name="question-circle"
+      />
+    </Tooltip>
     <div
       className="page-action-bar__spacer"
     />
-    <button
-      className="btn btn-primary pull-right"
+    <Button
+      className="pull-right"
       onClick={[Function]}
     >
-      <i
-        className="fa fa-plus"
+      <Icon
+        name="plus"
       />
        Add group
-    </button>
+    </Button>
   </div>
-  <Component
+  <SlideDown
     in={false}
   >
     <div
       className="cta-form"
     >
-      <button
-        className="cta-form__close btn btn-transparent"
+      <CloseButton
         onClick={[Function]}
-      >
-        <i
-          className="fa fa-close"
-        />
-      </button>
+      />
       <h5>
         Add External Group
       </h5>
@@ -155,17 +138,16 @@ exports[`Render should render groups table 1`] = `
         <div
           className="gf-form"
         >
-          <button
-            className="btn btn-primary gf-form-btn"
+          <Button
             disabled={true}
             type="submit"
           >
             Add group
-          </button>
+          </Button>
         </div>
       </form>
     </div>
-  </Component>
+  </SlideDown>
   <div
     className="admin-list-table"
   >
@@ -200,14 +182,15 @@ exports[`Render should render groups table 1`] = `
               }
             }
           >
-            <a
-              className="btn btn-danger btn-small"
+            <Button
               onClick={[Function]}
+              size="sm"
+              variant="destructive"
             >
-              <i
-                className="fa fa-remove"
+              <Icon
+                name="times"
               />
-            </a>
+            </Button>
           </td>
         </tr>
         <tr
@@ -223,14 +206,15 @@ exports[`Render should render groups table 1`] = `
               }
             }
           >
-            <a
-              className="btn btn-danger btn-small"
+            <Button
               onClick={[Function]}
+              size="sm"
+              variant="destructive"
             >
-              <i
-                className="fa fa-remove"
+              <Icon
+                name="times"
               />
-            </a>
+            </Button>
           </td>
         </tr>
         <tr
@@ -246,14 +230,15 @@ exports[`Render should render groups table 1`] = `
               }
             }
           >
-            <a
-              className="btn btn-danger btn-small"
+            <Button
               onClick={[Function]}
+              size="sm"
+              variant="destructive"
             >
-              <i
-                className="fa fa-remove"
+              <Icon
+                name="times"
               />
-            </a>
+            </Button>
           </td>
         </tr>
       </tbody>

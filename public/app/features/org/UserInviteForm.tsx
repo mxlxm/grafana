@@ -1,14 +1,20 @@
 import React, { FC } from 'react';
-import { Forms, HorizontalGroup } from '@grafana/ui';
+import {
+  HorizontalGroup,
+  Button,
+  LinkButton,
+  Input,
+  Switch,
+  RadioButtonGroup,
+  Form,
+  Field,
+  InputControl,
+} from '@grafana/ui';
 import { getConfig } from 'app/core/config';
 import { OrgRole } from 'app/types';
-import { getBackendSrv } from '@grafana/runtime';
-import { updateLocation } from 'app/core/actions';
-import { connect } from 'react-redux';
-import { hot } from 'react-hot-loader';
+import { getBackendSrv, locationService } from '@grafana/runtime';
 import { appEvents } from 'app/core/core';
-import { AppEvents } from '@grafana/data';
-import { assureBaseUrl } from 'app/core/utils/location_util';
+import { AppEvents, locationUtil } from '@grafana/data';
 
 const roles = [
   { label: 'Viewer', value: OrgRole.Viewer },
@@ -24,19 +30,18 @@ interface FormModel {
   email: string;
 }
 
-interface Props {
-  updateLocation: typeof updateLocation;
-}
+interface Props {}
 
-export const UserInviteForm: FC<Props> = ({ updateLocation }) => {
+export const UserInviteForm: FC<Props> = ({}) => {
   const onSubmit = async (formData: FormModel) => {
     try {
       await getBackendSrv().post('/api/org/invites', formData);
     } catch (err) {
-      appEvents.emit(AppEvents.alertError, ['Failed to send invite', err.message]);
+      appEvents.emit(AppEvents.alertError, ['Failed to send invitation.', err.message]);
     }
-    updateLocation({ path: 'org/users/' });
+    locationService.push('/org/users/');
   };
+
   const defaultValues: FormModel = {
     name: '',
     email: '',
@@ -45,46 +50,41 @@ export const UserInviteForm: FC<Props> = ({ updateLocation }) => {
   };
 
   return (
-    <Forms.Form defaultValues={defaultValues} onSubmit={onSubmit}>
+    <Form defaultValues={defaultValues} onSubmit={onSubmit}>
       {({ register, control, errors }) => {
         return (
           <>
-            <Forms.Field
+            <Field
               invalid={!!errors.loginOrEmail}
-              error={!!errors.loginOrEmail && 'Email or Username is required'}
-              label="Email or Username"
+              error={!!errors.loginOrEmail ? 'Email or username is required' : undefined}
+              label="Email or username"
             >
-              <Forms.Input
-                size="md"
-                name="loginOrEmail"
-                placeholder="email@example.com"
-                ref={register({ required: true })}
+              <Input {...register('loginOrEmail', { required: true })} placeholder="email@example.com" />
+            </Field>
+            <Field invalid={!!errors.name} label="Name">
+              <Input {...register('name')} placeholder="(optional)" />
+            </Field>
+            <Field invalid={!!errors.role} label="Role">
+              <InputControl
+                render={({ field: { ref, ...field } }) => <RadioButtonGroup {...field} options={roles} />}
+                control={control}
+                name="role"
               />
-            </Forms.Field>
-            <Forms.Field invalid={!!errors.name} label="Name">
-              <Forms.Input size="md" name="name" placeholder="(optional)" ref={register} />
-            </Forms.Field>
-            <Forms.Field invalid={!!errors.role} label="Role">
-              <Forms.InputControl as={Forms.RadioButtonGroup} control={control} options={roles} name="role" />
-            </Forms.Field>
-            <Forms.Field invalid={!!errors.sendEmail} label="Send invite email">
-              <Forms.Switch name="sendEmail" ref={register} />
-            </Forms.Field>
+            </Field>
+            <Field label="Send invite email">
+              <Switch {...register('sendEmail')} />
+            </Field>
             <HorizontalGroup>
-              <Forms.Button type="submit">Submit</Forms.Button>
-              <Forms.LinkButton href={assureBaseUrl(getConfig().appSubUrl + '/org/users')} variant="secondary">
+              <Button type="submit">Submit</Button>
+              <LinkButton href={locationUtil.assureBaseUrl(getConfig().appSubUrl + '/org/users')} variant="secondary">
                 Back
-              </Forms.LinkButton>
+              </LinkButton>
             </HorizontalGroup>
           </>
         );
       }}
-    </Forms.Form>
+    </Form>
   );
 };
 
-const mapDispatchToProps = {
-  updateLocation,
-};
-
-export default hot(module)(connect(null, mapDispatchToProps)(UserInviteForm));
+export default UserInviteForm;

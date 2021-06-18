@@ -1,4 +1,4 @@
-import _ from 'lodash';
+import { debounce } from 'lodash';
 import React, { Context } from 'react';
 
 import { Value, Editor as CoreEditor } from 'slate';
@@ -17,6 +17,7 @@ import {
 } from '../../slate-plugins';
 
 import { makeValue, SCHEMA, CompletionItemGroup, TypeaheadOutput, TypeaheadInput, SuggestionsState } from '../..';
+import { selectors } from '@grafana/e2e-selectors';
 
 export interface QueryFieldProps {
   additionalPlugins?: Plugin[];
@@ -25,10 +26,12 @@ export interface QueryFieldProps {
   // We have both value and local state. This is usually an antipattern but we need to keep local state
   // for perf reasons and also have outside value in for example in Explore redux that is mutable from logs
   // creating a two way binding.
-  query: string | null;
+  query?: string | null;
   onRunQuery?: () => void;
   onBlur?: () => void;
   onChange?: (value: string) => void;
+  onRichValueChange?: (value: Value) => void;
+  onClick?: (event: Event, editor: CoreEditor, next: () => any) => any;
   onTypeahead?: (typeahead: TypeaheadInput) => Promise<TypeaheadOutput>;
   onWillApplySuggestion?: (suggestion: string, state: SuggestionsState) => string;
   placeholder?: string;
@@ -61,21 +64,23 @@ export class QueryField extends React.PureComponent<QueryFieldProps, QueryFieldS
   constructor(props: QueryFieldProps, context: Context<any>) {
     super(props, context);
 
-    this.runOnChangeDebounced = _.debounce(this.runOnChange, 500);
+    this.runOnChangeDebounced = debounce(this.runOnChange, 500);
 
     const { onTypeahead, cleanText, portalOrigin, onWillApplySuggestion } = props;
 
     // Base plugins
     this.plugins = [
-      NewlinePlugin(),
+      // SuggestionsPlugin and RunnerPlugin need to be before NewlinePlugin
+      // because they override Enter behavior
       SuggestionsPlugin({ onTypeahead, cleanText, portalOrigin, onWillApplySuggestion }),
-      ClearPlugin(),
       RunnerPlugin({ handler: this.runOnChangeAndRunQuery }),
+      NewlinePlugin(),
+      ClearPlugin(),
       SelectionShortcutsPlugin(),
       IndentationPlugin(),
       ClipboardPlugin(),
       ...(props.additionalPlugins || []),
-    ].filter(p => p);
+    ].filter((p) => p);
 
     this.state = {
       suggestions: [],
@@ -95,7 +100,13 @@ export class QueryField extends React.PureComponent<QueryFieldProps, QueryFieldS
   }
 
   componentDidUpdate(prevProps: QueryFieldProps, prevState: QueryFieldState) {
-    const { query, syntax } = this.props;
+    const { query, syntax, syntaxLoaded } = this.props;
+
+    if (!prevProps.syntaxLoaded && syntaxLoaded && this.editor) {
+      // Need a bogus edit to re-render the editor after syntax has fully loaded
+      const editor = this.editor.insertText(' ').deleteBackward(1);
+      this.onChange(editor.value, true);
+    }
     const { value } = this.state;
 
     // Handle two way binging between local state and outside prop.
@@ -108,24 +119,15 @@ export class QueryField extends React.PureComponent<QueryFieldProps, QueryFieldS
     }
   }
 
-  UNSAFE_componentWillReceiveProps(nextProps: QueryFieldProps) {
-    if (nextProps.syntaxLoaded && !this.props.syntaxLoaded) {
-      if (!this.editor) {
-        return;
-      }
-
-      // Need a bogus edit to re-render the editor after syntax has fully loaded
-      const editor = this.editor.insertText(' ').deleteBackward(1);
-      this.onChange(editor.value, true);
-    }
-  }
-
   /**
    * Update local state, propagate change upstream and optionally run the query afterwards.
    */
   onChange = (value: Value, runQuery?: boolean) => {
     const documentChanged = value.document !== this.state.value.document;
     const prevValue = this.state.value;
+    if (this.props.onRichValueChange) {
+      this.props.onRichValueChange(value);
+    }
 
     // Update local state with new value and optionally change value upstream.
     this.setState({ value }, () => {
@@ -146,9 +148,9 @@ export class QueryField extends React.PureComponent<QueryFieldProps, QueryFieldS
 
   runOnChange = () => {
     const { onChange } = this.props;
-
+    const value = Plain.serialize(this.state.value);
     if (onChange) {
-      onChange(Plain.serialize(this.state.value));
+      onChange(this.cleanText(value));
     }
   };
 
@@ -173,6 +175,7 @@ export class QueryField extends React.PureComponent<QueryFieldProps, QueryFieldS
    */
   handleBlur = (event: Event, editor: CoreEditor, next: Function) => {
     const { onBlur } = this.props;
+
     if (onBlur) {
       onBlur();
     } else {
@@ -187,6 +190,12 @@ export class QueryField extends React.PureComponent<QueryFieldProps, QueryFieldS
     return next();
   };
 
+  cleanText(text: string) {
+    // RegExp with invisible characters we want to remove - currently only carriage return (newlines are visible)
+    const newText = text.replace(/[\r]/g, '');
+    return newText;
+  }
+
   render() {
     const { disabled } = this.props;
     const wrapperClassName = classnames('slate-query-field__wrapper', {
@@ -195,13 +204,14 @@ export class QueryField extends React.PureComponent<QueryFieldProps, QueryFieldS
 
     return (
       <div className={wrapperClassName}>
-        <div className="slate-query-field">
+        <div className="slate-query-field" aria-label={selectors.components.QueryField.container}>
           <Editor
-            ref={editor => (this.editor = editor!)}
+            ref={(editor) => (this.editor = editor!)}
             schema={SCHEMA}
             autoCorrect={false}
             readOnly={this.props.disabled}
             onBlur={this.handleBlur}
+            onClick={this.props.onClick}
             // onKeyDown={this.onKeyDown}
             onChange={(change: { value: Value }) => {
               this.onChange(change.value, false);

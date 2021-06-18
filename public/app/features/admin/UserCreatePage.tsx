@@ -1,17 +1,16 @@
 import React, { useCallback } from 'react';
 import { hot } from 'react-hot-loader';
 import { connect } from 'react-redux';
-import { Forms } from '@grafana/ui';
+import { Form, Button, Input, Field } from '@grafana/ui';
 import { NavModel } from '@grafana/data';
 import { getBackendSrv } from '@grafana/runtime';
 import { StoreState } from '../../types';
 import { getNavModel } from '../../core/selectors/navModel';
 import Page from 'app/core/components/Page/Page';
-import { updateLocation } from 'app/core/actions';
+import { useHistory } from 'react-router-dom';
 
 interface UserCreatePageProps {
   navModel: NavModel;
-  updateLocation: typeof updateLocation;
 }
 interface UserDTO {
   name: string;
@@ -22,51 +21,59 @@ interface UserDTO {
 
 const createUser = async (user: UserDTO) => getBackendSrv().post('/api/admin/users', user);
 
-const UserCreatePage: React.FC<UserCreatePageProps> = ({ navModel, updateLocation }) => {
-  const onSubmit = useCallback(async (data: UserDTO) => {
-    await createUser(data);
-    updateLocation({ path: '/admin/users' });
-  }, []);
+const UserCreatePage: React.FC<UserCreatePageProps> = ({ navModel }) => {
+  const history = useHistory();
+
+  const onSubmit = useCallback(
+    async (data: UserDTO) => {
+      await createUser(data);
+      history.push('/admin/users');
+    },
+    [history]
+  );
 
   return (
     <Page navModel={navModel}>
       <Page.Contents>
         <h1>Add new user</h1>
-        <Forms.Form onSubmit={onSubmit} validateOn="onBlur">
+        <Form onSubmit={onSubmit} validateOn="onBlur">
           {({ register, errors }) => {
             return (
               <>
-                <Forms.Field label="Name" required invalid={!!errors.name} error={!!errors.name && 'Name is required'}>
-                  <Forms.Input name="name" size="md" ref={register({ required: true })} />
-                </Forms.Field>
+                <Field
+                  label="Name"
+                  required
+                  invalid={!!errors.name}
+                  error={errors.name ? 'Name is required' : undefined}
+                >
+                  <Input {...register('name', { required: true })} />
+                </Field>
 
-                <Forms.Field label="E-mail">
-                  <Forms.Input name="email" size="md" ref={register} />
-                </Forms.Field>
+                <Field label="Email">
+                  <Input {...register('email')} />
+                </Field>
 
-                <Forms.Field label="Username">
-                  <Forms.Input name="login" size="md" ref={register} />
-                </Forms.Field>
-                <Forms.Field
+                <Field label="Username">
+                  <Input {...register('login')} />
+                </Field>
+                <Field
                   label="Password"
                   required
                   invalid={!!errors.password}
-                  error={!!errors.password && 'Password is required and must contain at least 4 characters'}
+                  error={errors.password ? 'Password is required and must contain at least 4 characters' : undefined}
                 >
-                  <Forms.Input
-                    size="md"
-                    type="password"
-                    name="password"
-                    ref={register({
-                      validate: value => value.trim() !== '' && value.length >= 4,
+                  <Input
+                    {...register('password', {
+                      validate: (value) => value.trim() !== '' && value.length >= 4,
                     })}
+                    type="password"
                   />
-                </Forms.Field>
-                <Forms.Button type="submit">Create user</Forms.Button>
+                </Field>
+                <Button type="submit">Create user</Button>
               </>
             );
           }}
-        </Forms.Form>
+        </Form>
       </Page.Contents>
     </Page>
   );
@@ -76,7 +83,4 @@ const mapStateToProps = (state: StoreState) => ({
   navModel: getNavModel(state.navIndex, 'global-users'),
 });
 
-const mapDispatchToProps = {
-  updateLocation,
-};
-export default hot(module)(connect(mapStateToProps, mapDispatchToProps)(UserCreatePage));
+export default hot(module)(connect(mapStateToProps)(UserCreatePage));

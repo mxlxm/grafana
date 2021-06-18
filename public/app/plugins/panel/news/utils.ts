@@ -6,6 +6,7 @@ export function feedToDataFrame(feed: RssFeed): DataFrame {
   const title = new ArrayVector<string>([]);
   const link = new ArrayVector<string>([]);
   const content = new ArrayVector<string>([]);
+  const ogImage = new ArrayVector<string | undefined | null>([]);
 
   for (const item of feed.items) {
     const val = dateTime(item.pubDate);
@@ -14,6 +15,7 @@ export function feedToDataFrame(feed: RssFeed): DataFrame {
       date.buffer.push(val.valueOf());
       title.buffer.push(item.title);
       link.buffer.push(item.link);
+      ogImage.buffer.push(item.ogImage);
 
       if (item.content) {
         const body = item.content.replace(/<\/?[^>]+(>|$)/g, '');
@@ -26,10 +28,11 @@ export function feedToDataFrame(feed: RssFeed): DataFrame {
 
   return {
     fields: [
-      { name: 'date', type: FieldType.time, config: { title: 'Date' }, values: date },
+      { name: 'date', type: FieldType.time, config: { displayName: 'Date' }, values: date },
       { name: 'title', type: FieldType.string, config: {}, values: title },
       { name: 'link', type: FieldType.string, config: {}, values: link },
       { name: 'content', type: FieldType.string, config: {}, values: content },
+      { name: 'ogImage', type: FieldType.string, config: {}, values: ogImage },
     ],
     length: date.length,
   };

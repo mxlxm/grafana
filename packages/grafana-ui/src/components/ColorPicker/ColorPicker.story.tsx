@@ -1,25 +1,32 @@
 import React from 'react';
-import { storiesOf } from '@storybook/react';
-import { boolean } from '@storybook/addon-knobs';
-import { SeriesColorPicker, ColorPicker } from './ColorPicker';
+import { Meta, Story } from '@storybook/react';
+import { SeriesColorPicker, ColorPicker } from '@grafana/ui';
 import { action } from '@storybook/addon-actions';
 import { withCenteredStory } from '../../utils/storybook/withCenteredStory';
 import { UseState } from '../../utils/storybook/UseState';
 import { renderComponentWithTheme } from '../../utils/storybook/withTheme';
+import { ColorPickerProps } from './ColorPickerPopover';
+import mdx from './ColorPicker.mdx';
 
-const getColorPickerKnobs = () => {
-  return {
-    enableNamedColors: boolean('Enable named colors', false),
-  };
-};
+export default {
+  title: 'Pickers and Editors/ColorPicker',
+  component: ColorPicker,
+  subcomponents: { SeriesColorPicker },
+  decorators: [withCenteredStory],
+  parameters: {
+    docs: {
+      page: mdx,
+    },
+    controls: {
+      exclude: ['color', 'onChange', 'onColorChange'],
+    },
+  },
+  args: {
+    enableNamedColors: false,
+  },
+} as Meta;
 
-const ColorPickerStories = storiesOf('General/ColorPicker/Pickers', module);
-
-ColorPickerStories.addDecorator(withCenteredStory);
-
-ColorPickerStories.add('default', () => {
-  const { enableNamedColors } = getColorPickerKnobs();
-
+export const Basic: Story<ColorPickerProps> = ({ enableNamedColors }) => {
   return (
     <UseState initialState="#00ff00">
       {(selectedColor, updateSelectedColor) => {
@@ -34,11 +41,9 @@ ColorPickerStories.add('default', () => {
       }}
     </UseState>
   );
-});
+};
 
-ColorPickerStories.add('Series color picker', () => {
-  const { enableNamedColors } = getColorPickerKnobs();
-
+export const SeriesPicker: Story<ColorPickerProps> = ({ enableNamedColors }) => {
   return (
     <UseState initialState="#00ff00">
       {(selectedColor, updateSelectedColor) => {
@@ -48,7 +53,7 @@ ColorPickerStories.add('Series color picker', () => {
             yaxis={1}
             onToggleAxis={() => {}}
             color={selectedColor}
-            onChange={color => updateSelectedColor(color)}
+            onChange={(color) => updateSelectedColor(color)}
           >
             {({ ref, showColorPicker, hideColorPicker }) => (
               <div
@@ -65,4 +70,4 @@ ColorPickerStories.add('Series color picker', () => {
       }}
     </UseState>
   );
-});
+};

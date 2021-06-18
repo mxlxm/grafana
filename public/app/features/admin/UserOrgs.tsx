@@ -1,16 +1,18 @@
 import React, { PureComponent } from 'react';
-import { css, cx } from 'emotion';
-import { Modal, Themeable, stylesFactory, withTheme, ConfirmButton, Forms } from '@grafana/ui';
+import { css, cx } from '@emotion/css';
+import { Button, ConfirmButton, Field, HorizontalGroup, Modal, stylesFactory, Themeable, withTheme } from '@grafana/ui';
 import { GrafanaTheme } from '@grafana/data';
-import { UserOrg, Organization } from 'app/types';
+import { AccessControlAction, Organization, OrgRole, UserOrg } from 'app/types';
 import { OrgPicker, OrgSelectItem } from 'app/core/components/Select/OrgPicker';
+import { OrgRolePicker } from './OrgRolePicker';
+import { contextSrv } from 'app/core/core';
 
 interface Props {
   orgs: UserOrg[];
 
   onOrgRemove: (orgId: number) => void;
-  onOrgRoleChange: (orgId: number, newRole: string) => void;
-  onOrgAdd: (orgId: number, role: string) => void;
+  onOrgRoleChange: (orgId: number, newRole: OrgRole) => void;
+  onOrgAdd: (orgId: number, role: OrgRole) => void;
 }
 
 interface State {
@@ -32,10 +34,11 @@ export class UserOrgs extends PureComponent<Props, State> {
     const addToOrgContainerClass = css`
       margin-top: 0.8rem;
     `;
+    const canAddToOrg = contextSrv.hasPermission(AccessControlAction.OrgUsersAdd);
 
     return (
       <>
-        <h3 className="page-heading">Organisations</h3>
+        <h3 className="page-heading">Organizations</h3>
         <div className="gf-form-group">
           <div className="gf-form">
             <table className="filter-table form-inline">
@@ -52,9 +55,11 @@ export class UserOrgs extends PureComponent<Props, State> {
             </table>
           </div>
           <div className={addToOrgContainerClass}>
-            <Forms.Button variant="secondary" onClick={this.showOrgAddModal(true)}>
-              Add user to organization
-            </Forms.Button>
+            {canAddToOrg && (
+              <Button variant="secondary" onClick={this.showOrgAddModal(true)}>
+                Add user to organization
+              </Button>
+            )}
           </div>
           <AddToOrgModal isOpen={showAddOrgModal} onOrgAdd={onOrgAdd} onDismiss={this.showOrgAddModal(false)} />
         </div>
@@ -63,14 +68,12 @@ export class UserOrgs extends PureComponent<Props, State> {
   }
 }
 
-const ORG_ROLES = ['Viewer', 'Editor', 'Admin'];
-
 const getOrgRowStyles = stylesFactory((theme: GrafanaTheme) => {
   return {
     removeButton: css`
       margin-right: 0.6rem;
       text-decoration: underline;
-      color: ${theme.colors.blue95};
+      color: ${theme.palette.blue95};
     `,
     label: css`
       font-weight: 500;
@@ -81,20 +84,18 @@ const getOrgRowStyles = stylesFactory((theme: GrafanaTheme) => {
 interface OrgRowProps extends Themeable {
   org: UserOrg;
   onOrgRemove: (orgId: number) => void;
-  onOrgRoleChange: (orgId: number, newRole: string) => void;
+  onOrgRoleChange: (orgId: number, newRole: OrgRole) => void;
 }
 
 interface OrgRowState {
-  currentRole: string;
+  currentRole: OrgRole;
   isChangingRole: boolean;
-  isRemovingFromOrg: boolean;
 }
 
 class UnThemedOrgRow extends PureComponent<OrgRowProps, OrgRowState> {
   state = {
     currentRole: this.props.org.role,
     isChangingRole: false,
-    isRemovingFromOrg: false,
   };
 
   onOrgRemove = () => {
@@ -107,12 +108,7 @@ class UnThemedOrgRow extends PureComponent<OrgRowProps, OrgRowState> {
     this.setState({ isChangingRole: true, currentRole: org.role });
   };
 
-  onOrgRemoveClick = () => {
-    this.setState({ isRemovingFromOrg: true });
-  };
-
-  onOrgRoleChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
-    const newRole = event.target.value;
+  onOrgRoleChange = (newRole: OrgRole) => {
     this.setState({ currentRole: newRole });
   };
 
@@ -121,38 +117,30 @@ class UnThemedOrgRow extends PureComponent<OrgRowProps, OrgRowState> {
   };
 
   onCancelClick = () => {
-    this.setState({ isChangingRole: false, isRemovingFromOrg: false });
+    this.setState({ isChangingRole: false });
   };
 
   render() {
     const { org, theme } = this.props;
-    const { currentRole, isChangingRole, isRemovingFromOrg } = this.state;
+    const { currentRole, isChangingRole } = this.state;
     const styles = getOrgRowStyles(theme);
     const labelClass = cx('width-16', styles.label);
+    const canChangeRole = contextSrv.hasPermission(AccessControlAction.OrgUsersRoleUpdate);
+    const canRemoveFromOrg = contextSrv.hasPermission(AccessControlAction.OrgUsersRemove);
 
     return (
       <tr>
         <td className={labelClass}>{org.name}</td>
         {isChangingRole ? (
           <td>
-            <div className="gf-form-select-wrapper width-8">
-              <select value={currentRole} className="gf-form-input" onChange={this.onOrgRoleChange}>
-                {ORG_ROLES.map((option, index) => {
-                  return (
-                    <option value={option} key={`${option}-${index}`}>
-                      {option}
-                    </option>
-                  );
-                })}
-              </select>
-            </div>
+            <OrgRolePicker value={currentRole} onChange={this.onOrgRoleChange} />
           </td>
         ) : (
           <td className="width-25">{org.role}</td>
         )}
-        {!isRemovingFromOrg && (
-          <td colSpan={isChangingRole ? 2 : 1}>
-            <div className="pull-right">
+        <td colSpan={1}>
+          <div className="pull-right">
+            {canChangeRole && (
               <ConfirmButton
                 confirmText="Save"
                 onClick={this.onChangeRoleClick}
@@ -161,24 +149,23 @@ class UnThemedOrgRow extends PureComponent<OrgRowProps, OrgRowState> {
               >
                 Change role
               </ConfirmButton>
-            </div>
-          </td>
-        )}
-        {!isChangingRole && (
-          <td colSpan={isRemovingFromOrg ? 2 : 1}>
-            <div className="pull-right">
+            )}
+          </div>
+        </td>
+        <td colSpan={1}>
+          <div className="pull-right">
+            {canRemoveFromOrg && (
               <ConfirmButton
                 confirmText="Confirm removal"
-                confirmVariant="danger"
-                onClick={this.onOrgRemoveClick}
+                confirmVariant="destructive"
                 onCancel={this.onCancelClick}
                 onConfirm={this.onOrgRemove}
               >
-                Remove from organisation
+                Remove from organization
               </ConfirmButton>
-            </div>
-          </td>
-        )}
+            )}
+          </div>
+        </td>
       </tr>
     );
   }
@@ -193,6 +180,9 @@ const getAddToOrgModalStyles = stylesFactory(() => ({
   buttonRow: css`
     text-align: center;
   `,
+  modalContent: css`
+    overflow: visible;
+  `,
 }));
 
 interface AddToOrgModalProps {
@@ -202,69 +192,65 @@ interface AddToOrgModalProps {
 }
 
 interface AddToOrgModalState {
-  selectedOrg: Organization;
-  role: string;
+  selectedOrg: Organization | null;
+  role: OrgRole;
 }
 
 export class AddToOrgModal extends PureComponent<AddToOrgModalProps, AddToOrgModalState> {
   state: AddToOrgModalState = {
     selectedOrg: null,
-    role: 'Admin',
+    role: OrgRole.Admin,
   };
 
   onOrgSelect = (org: OrgSelectItem) => {
-    this.setState({ selectedOrg: { ...org } });
+    this.setState({ selectedOrg: org.value! });
   };
 
-  onOrgRoleChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+  onOrgRoleChange = (newRole: OrgRole) => {
     this.setState({
-      role: event.target.value,
+      role: newRole,
     });
   };
 
   onAddUserToOrg = () => {
     const { selectedOrg, role } = this.state;
-    this.props.onOrgAdd(selectedOrg.id, role);
+    this.props.onOrgAdd(selectedOrg!.id, role);
   };
 
   onCancel = () => {
-    this.props.onDismiss();
+    if (this.props.onDismiss) {
+      this.props.onDismiss();
+    }
   };
 
   render() {
     const { isOpen } = this.props;
     const { role } = this.state;
     const styles = getAddToOrgModalStyles();
-    const buttonRowClass = cx('gf-form-button-row', styles.buttonRow);
-
     return (
-      <Modal className={styles.modal} title="Add to an organization" isOpen={isOpen} onDismiss={this.onCancel}>
-        <div className="gf-form-group">
-          <h6 className="">Organisation</h6>
-          <OrgPicker className="width-25" onSelected={this.onOrgSelect} />
-        </div>
-        <div className="gf-form-group">
-          <h6 className="">Role</h6>
-          <div className="gf-form-select-wrapper width-16">
-            <select value={role} className="gf-form-input" onChange={this.onOrgRoleChange}>
-              {ORG_ROLES.map((option, index) => {
-                return (
-                  <option value={option} key={`${option}-${index}`}>
-                    {option}
-                  </option>
-                );
-              })}
-            </select>
-          </div>
-        </div>
-        <div className={buttonRowClass}>
-          <Forms.Button variant="primary" onClick={this.onAddUserToOrg}>
-            Add to organization
-          </Forms.Button>
-          <Forms.Button variant="secondary" onClick={this.onCancel}>
-            Cancel
-          </Forms.Button>
-        </div>
+      <Modal
+        className={styles.modal}
+        contentClassName={styles.modalContent}
+        title="Add to an organization"
+        isOpen={isOpen}
+        onDismiss={this.onCancel}
+      >
+        <Field label="Organization">
+          <OrgPicker onSelected={this.onOrgSelect} />
+        </Field>
+        <Field label="Role">
+          <OrgRolePicker value={role} onChange={this.onOrgRoleChange} />
+        </Field>
+        <Modal.ButtonRow>
+          <HorizontalGroup spacing="md" justify="center">
+            <Button variant="secondary" fill="outline" onClick={this.onCancel}>
+              Cancel
+            </Button>
+            <Button variant="primary" onClick={this.onAddUserToOrg}>
+              Add to organization
+            </Button>
+          </HorizontalGroup>
+        </Modal.ButtonRow>
       </Modal>
     );
   }

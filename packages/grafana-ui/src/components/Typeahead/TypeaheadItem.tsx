@@ -1,12 +1,12 @@
-import React, { useContext } from 'react';
+import React from 'react';
 
 // @ts-ignore
 import Highlighter from 'react-highlight-words';
-import { css, cx } from 'emotion';
+import { css, cx } from '@emotion/css';
 import { GrafanaTheme } from '@grafana/data';
-import { selectThemeVariant } from '../../themes/selectThemeVariant';
 import { CompletionItem, CompletionItemKind } from '../../types/completion';
-import { ThemeContext } from '../../themes/ThemeContext';
+import { PartialHighlighter } from './PartialHighlighter';
+import { useStyles } from '../../themes/ThemeContext';
 
 interface Props {
   isSelected: boolean;
@@ -28,7 +28,7 @@ const getStyles = (theme: GrafanaTheme) => ({
     font-size: ${theme.typography.size.sm};
     text-overflow: ellipsis;
     overflow: hidden;
-    z-index: 1;
+    z-index: 11;
     display: block;
     white-space: nowrap;
     cursor: pointer;
@@ -38,13 +38,13 @@ const getStyles = (theme: GrafanaTheme) => ({
 
   typeaheadItemSelected: css`
     label: type-ahead-item-selected;
-    background-color: ${selectThemeVariant({ light: theme.colors.gray6, dark: theme.colors.dark9 }, theme.type)};
+    background-color: ${theme.colors.bg2};
   `,
 
   typeaheadItemMatch: css`
     label: type-ahead-item-match;
-    color: ${theme.colors.yellow};
-    border-bottom: 1px solid ${theme.colors.yellow};
+    color: ${theme.palette.yellow};
+    border-bottom: 1px solid ${theme.palette.yellow};
     padding: inherit;
     background: inherit;
   `,
@@ -59,8 +59,7 @@ const getStyles = (theme: GrafanaTheme) => ({
 });
 
 export const TypeaheadItem: React.FC<Props> = (props: Props) => {
-  const theme = useContext(ThemeContext);
-  const styles = getStyles(theme);
+  const styles = useStyles(getStyles);
 
   const { isSelected, item, prefix, style, onMouseEnter, onMouseLeave, onClickItem } = props;
   const className = isSelected ? cx([styles.typeaheadItem, styles.typeaheadItemSelected]) : cx([styles.typeaheadItem]);
@@ -84,7 +83,15 @@ export const TypeaheadItem: React.FC<Props> = (props: Props) => {
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
     >
-      <Highlighter textToHighlight={label} searchWords={[prefix]} highlightClassName={highlightClassName} />
+      {item.highlightParts !== undefined ? (
+        <PartialHighlighter
+          text={label}
+          highlightClassName={highlightClassName}
+          highlightParts={item.highlightParts}
+        ></PartialHighlighter>
+      ) : (
+        <Highlighter textToHighlight={label} searchWords={[prefix ?? '']} highlightClassName={highlightClassName} />
+      )}
     </li>
   );
 };

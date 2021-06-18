@@ -1,32 +1,60 @@
-import React, { useState } from 'react';
-
-import { Switch } from './Switch';
-import { text } from '@storybook/addon-knobs';
+import React, { useState, useCallback } from 'react';
+import { Meta, Story } from '@storybook/react';
+import { withCenteredStory, withHorizontallyCenteredStory } from '../../utils/storybook/withCenteredStory';
+import { InlineField, Switch, InlineSwitch } from '@grafana/ui';
 import mdx from './Switch.mdx';
+import { InlineFieldRow } from '../Forms/InlineFieldRow';
+import { Field } from '../Forms/Field';
 
-const getStory = (title: string, component: any) => ({
-  title,
+export default {
+  title: 'Forms/Switch',
+  component: Switch,
+  decorators: [withCenteredStory, withHorizontallyCenteredStory],
   parameters: {
-    component,
     docs: {
       page: mdx,
     },
   },
-});
+  args: {
+    disabled: false,
+    value: false,
+    transparent: false,
+  },
+} as Meta;
 
-export default getStory('General/Switch', Switch);
-
-const getKnobs = () => {
-  return {
-    label: text('Label Text', 'Label'),
-    tooltip: text('Tooltip', ''),
-  };
+export const Controlled: Story = (args) => {
+  return (
+    <div>
+      <div style={{ marginBottom: '32px' }}>
+        <Field label="Normal switch" description="For horizontal forms">
+          <Switch value={args.value} disabled={args.disabled} transparent={args.transparent} />
+        </Field>
+      </div>
+      <div style={{ marginBottom: '32px' }}>
+        <InlineFieldRow>
+          <InlineField label="My switch">
+            <InlineSwitch value={args.value} disabled={args.disabled} transparent={args.transparent} />
+          </InlineField>
+        </InlineFieldRow>
+      </div>
+      <div style={{ marginBottom: '32px' }}>
+        <div>just inline switch with show label</div>
+        <span>
+          <InlineSwitch
+            label="Raw data"
+            showLabel={true}
+            value={args.value}
+            disabled={args.disabled}
+            transparent={args.transparent}
+          />
+        </span>
+      </div>
+    </div>
+  );
 };
 
-const SwitchWrapper = () => {
-  const { label, tooltip } = getKnobs();
-  const [checked, setChecked] = useState(false);
-  return <Switch label={label} checked={checked} onChange={() => setChecked(!checked)} tooltip={tooltip} />;
+export const Uncontrolled: Story = (args) => {
+  const [checked, setChecked] = useState(args.value);
+  const onChange = useCallback((e) => setChecked(e.currentTarget.checked), [setChecked]);
+  return <Switch value={checked} disabled={args.disabled} transparent={args.transparent} onChange={onChange} />;
 };
-
-export const basic = () => <SwitchWrapper />;

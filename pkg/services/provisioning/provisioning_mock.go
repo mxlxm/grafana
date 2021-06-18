@@ -1,20 +1,28 @@
 package provisioning
 
+import "context"
+
 type Calls struct {
+	RunInitProvisioners                 []interface{}
 	ProvisionDatasources                []interface{}
+	ProvisionPlugins                    []interface{}
 	ProvisionNotifications              []interface{}
 	ProvisionDashboards                 []interface{}
 	GetDashboardProvisionerResolvedPath []interface{}
-	GetAllowUiUpdatesFromConfig         []interface{}
+	GetAllowUIUpdatesFromConfig         []interface{}
+	Run                                 []interface{}
 }
 
 type ProvisioningServiceMock struct {
 	Calls                                   *Calls
+	RunInitProvisionersFunc                 func() error
 	ProvisionDatasourcesFunc                func() error
+	ProvisionPluginsFunc                    func() error
 	ProvisionNotificationsFunc              func() error
 	ProvisionDashboardsFunc                 func() error
 	GetDashboardProvisionerResolvedPathFunc func(name string) string
-	GetAllowUiUpdatesFromConfigFunc         func(name string) bool
+	GetAllowUIUpdatesFromConfigFunc         func(name string) bool
+	RunFunc                                 func(ctx context.Context) error
 }
 
 func NewProvisioningServiceMock() *ProvisioningServiceMock {
@@ -23,10 +31,26 @@ func NewProvisioningServiceMock() *ProvisioningServiceMock {
 	}
 }
 
+func (mock *ProvisioningServiceMock) RunInitProvisioners() error {
+	mock.Calls.RunInitProvisioners = append(mock.Calls.RunInitProvisioners, nil)
+	if mock.RunInitProvisionersFunc != nil {
+		return mock.RunInitProvisionersFunc()
+	}
+	return nil
+}
+
 func (mock *ProvisioningServiceMock) ProvisionDatasources() error {
 	mock.Calls.ProvisionDatasources = append(mock.Calls.ProvisionDatasources, nil)
 	if mock.ProvisionDatasourcesFunc != nil {
 		return mock.ProvisionDatasourcesFunc()
+	}
+	return nil
+}
+
+func (mock *ProvisioningServiceMock) ProvisionPlugins() error {
+	mock.Calls.ProvisionPlugins = append(mock.Calls.ProvisionPlugins, nil)
+	if mock.ProvisionPluginsFunc != nil {
+		return mock.ProvisionPluginsFunc()
 	}
 	return nil
 }
@@ -55,10 +79,18 @@ func (mock *ProvisioningServiceMock) GetDashboardProvisionerResolvedPath(name st
 	return ""
 }
 
-func (mock *ProvisioningServiceMock) GetAllowUiUpdatesFromConfig(name string) bool {
-	mock.Calls.GetAllowUiUpdatesFromConfig = append(mock.Calls.GetAllowUiUpdatesFromConfig, name)
-	if mock.GetAllowUiUpdatesFromConfigFunc != nil {
-		return mock.GetAllowUiUpdatesFromConfigFunc(name)
+func (mock *ProvisioningServiceMock) GetAllowUIUpdatesFromConfig(name string) bool {
+	mock.Calls.GetAllowUIUpdatesFromConfig = append(mock.Calls.GetAllowUIUpdatesFromConfig, name)
+	if mock.GetAllowUIUpdatesFromConfigFunc != nil {
+		return mock.GetAllowUIUpdatesFromConfigFunc(name)
 	}
 	return false
+}
+
+func (mock *ProvisioningServiceMock) Run(ctx context.Context) error {
+	mock.Calls.Run = append(mock.Calls.Run, nil)
+	if mock.RunFunc != nil {
+		return mock.RunFunc(ctx)
+	}
+	return nil
 }

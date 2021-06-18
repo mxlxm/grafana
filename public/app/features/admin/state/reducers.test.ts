@@ -10,23 +10,28 @@ import {
   userMappingInfoLoadedAction,
   userProfileLoadedAction,
   userSessionsLoadedAction,
+  userListAdminReducer,
+  queryChanged,
 } from './reducers';
-import { LdapState, LdapUser, UserAdminState, UserDTO } from 'app/types';
+import { LdapState, LdapUser, UserAdminState, UserDTO, UserListAdminState } from 'app/types';
 
 const makeInitialLdapState = (): LdapState => ({
   connectionInfo: [],
-  syncInfo: null,
-  user: null,
-  ldapError: null,
-  connectionError: null,
-  userError: null,
 });
 
 const makeInitialUserAdminState = (): UserAdminState => ({
-  user: null,
   sessions: [],
   orgs: [],
   isLoading: true,
+});
+
+const makeInitialUserListAdminState = (): UserListAdminState => ({
+  users: [],
+  query: '',
+  page: 0,
+  perPage: 50,
+  totalPages: 1,
+  showPaging: false,
 });
 
 const getTestUserMapping = (): LdapUser => ({
@@ -84,7 +89,7 @@ describe('LDAP page reducer', () => {
                 error: (null as unknown) as string,
               },
             ],
-            ldapError: null,
+            ldapError: undefined,
           });
       });
     });
@@ -156,7 +161,7 @@ describe('LDAP page reducer', () => {
         .thenStateShouldEqual({
           ...makeInitialLdapState(),
           user: getTestUserMapping(),
-          userError: null,
+          userError: undefined,
         });
     });
   });
@@ -178,7 +183,7 @@ describe('LDAP page reducer', () => {
         )
         .thenStateShouldEqual({
           ...makeInitialLdapState(),
-          user: null,
+          user: undefined,
           userError: {
             title: 'User not found',
             body: 'Cannot find user',
@@ -197,7 +202,7 @@ describe('LDAP page reducer', () => {
         .whenActionIsDispatched(clearUserMappingInfoAction())
         .thenStateShouldEqual({
           ...makeInitialLdapState(),
-          user: null,
+          user: undefined,
         });
     });
   });
@@ -257,6 +262,26 @@ describe('Edit Admin user page reducer', () => {
               seenAt: '2020-01-01 00:00:00',
             },
           ],
+        });
+    });
+  });
+});
+
+describe('User List Admin reducer', () => {
+  describe('When query changed', () => {
+    it('should reset page to 0', () => {
+      const initialState = {
+        ...makeInitialUserListAdminState(),
+        page: 3,
+      };
+
+      reducerTester<UserListAdminState>()
+        .givenReducer(userListAdminReducer, initialState)
+        .whenActionIsDispatched(queryChanged('test'))
+        .thenStateShouldEqual({
+          ...makeInitialUserListAdminState(),
+          query: 'test',
+          page: 0,
         });
     });
   });

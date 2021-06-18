@@ -1,6 +1,7 @@
 import { DashboardAcl } from './acl';
 import { DataQuery, PanelPlugin } from '@grafana/data';
 import { DashboardModel } from 'app/features/dashboard/state/DashboardModel';
+import { AngularComponent } from '@grafana/runtime';
 
 export interface DashboardDTO {
   redirectUri?: string;
@@ -17,14 +18,11 @@ export interface DashboardMeta {
   canAdmin?: boolean;
   url?: string;
   folderId?: number;
-  fullscreen?: boolean;
   fromExplore?: boolean;
-  isEditing?: boolean;
   canMakeEditable?: boolean;
   submenuEnabled?: boolean;
   provisioned?: boolean;
   provisionedExternalId?: string;
-  focusPanelId?: number;
   isStarred?: boolean;
   showSettings?: boolean;
   expires?: string;
@@ -32,13 +30,19 @@ export interface DashboardMeta {
   folderTitle?: string;
   folderUrl?: string;
   created?: string;
+  createdBy?: string;
+  updated?: string;
+  updatedBy?: string;
+  fromScript?: boolean;
+  fromFile?: boolean;
+  hasUnsavedFolderChange?: boolean;
 }
 
 export interface DashboardDataDTO {
   title: string;
 }
 
-export enum DashboardRouteInfo {
+export enum DashboardRoutes {
   Home = 'home-dashboard',
   New = 'new-dashboard',
   Normal = 'normal-dashboard',
@@ -58,8 +62,12 @@ export interface DashboardInitError {
   error: any;
 }
 
-export const KIOSK_MODE_TV = 'tv';
-export type KioskUrlValue = 'tv' | '1' | true;
+export enum KioskMode {
+  Off = 'off',
+  TV = 'tv',
+  Full = 'full',
+}
+
 export type GetMutableDashboardModelFn = () => DashboardModel | null;
 
 export interface QueriesToUpdateOnDashboardLoad {
@@ -70,6 +78,7 @@ export interface QueriesToUpdateOnDashboardLoad {
 export interface PanelState {
   pluginId: string;
   plugin?: PanelPlugin;
+  angularComponent?: AngularComponent | null;
 }
 
 export interface DashboardState {
@@ -77,7 +86,7 @@ export interface DashboardState {
   initPhase: DashboardInitPhase;
   isInitSlow: boolean;
   initError: DashboardInitError | null;
-  permissions: DashboardAcl[] | null;
+  permissions: DashboardAcl[];
   modifiedQueries: QueriesToUpdateOnDashboardLoad | null;
   panels: { [id: string]: PanelState };
 }

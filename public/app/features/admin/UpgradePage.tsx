@@ -1,9 +1,9 @@
 import React from 'react';
-import { css } from 'emotion';
+import { css } from '@emotion/css';
 import { NavModel } from '@grafana/data';
 import Page from '../../core/components/Page/Page';
 import { LicenseChrome } from './LicenseChrome';
-import { Forms } from '@grafana/ui';
+import { LinkButton } from '@grafana/ui';
 import { hot } from 'react-hot-loader';
 import { StoreState } from '../../types';
 import { getNavModel } from '../../core/selectors/navModel';
@@ -60,8 +60,8 @@ const GetEnterprise: React.FC = () => {
       <h2 style={titleStyles}>Get Grafana Enterprise</h2>
       <CallToAction />
       <p style={{ paddingTop: '12px' }}>
-        You can use the trial version for free for <strong>30 days</strong>. We will remind you about it{' '}
-        <strong>5 days before the trial period ends</strong>.
+        You can use the trial version for free for 30 days. We will remind you about it five days before the trial
+        period ends.
       </p>
     </div>
   );
@@ -69,13 +69,13 @@ const GetEnterprise: React.FC = () => {
 
 const CallToAction: React.FC = () => {
   return (
-    <Forms.LinkButton
+    <LinkButton
       variant="primary"
       size="lg"
       href="https://grafana.com/contact?about=grafana-enterprise&utm_source=grafana-upgrade-page"
     >
       Contact us and get a free trial
-    </Forms.LinkButton>
+    </LinkButton>
   );
 };
 
@@ -88,10 +88,10 @@ const ServiceInfo: React.FC = () => {
         <Item title="Enterprise Plugins" image="public/img/licensing/plugin_enterprise.svg" />
         <Item title="Critical SLA: 2 hours" image="public/img/licensing/sla.svg" />
         <Item title="Unlimited Expert Support" image="public/img/licensing/customer_support.svg">
-          24x7x365 support via
+          24 x 7 x 365 support via
           <List nested={true}>
             <Item title="Email" />
-            <Item title="Private slack channel" />
+            <Item title="Private Slack channel" />
             <Item title="Phone" />
           </List>
         </Item>
@@ -105,6 +105,8 @@ const ServiceInfo: React.FC = () => {
         <br />
         Indemnification, working with Grafana Labs on future prioritization, and training from the core Grafana team.
       </div>
+
+      <GetEnterprise />
     </div>
   );
 };
@@ -112,10 +114,8 @@ const ServiceInfo: React.FC = () => {
 const FeatureInfo: React.FC = () => {
   return (
     <div style={{ paddingRight: '11px' }}>
-      <h4>Enhanced Functionality</h4>
+      <h4>Enhanced functionality</h4>
       <FeatureListing />
-
-      <GetEnterprise />
     </div>
   );
 };
@@ -125,18 +125,31 @@ const FeatureListing: React.FC = () => {
     <List>
       <Item title="Data source permissions" />
       <Item title="Reporting" />
-      <Item title="SAML Authentication" />
-      <Item title="Enhanced LDAP Integration" />
-      <Item title="Team Sync">LDAP, GitHub OAuth, Auth Proxy</Item>
+      <Item title="SAML authentication" />
+      <Item title="Enhanced LDAP integration" />
+      <Item title="Team Sync">LDAP, GitHub OAuth, Auth Proxy, Okta</Item>
       <Item title="White labeling" />
-      <Item title="Enterprise Plugins">
+      <Item title="Auditing" />
+      <Item title="Settings updates at runtime" />
+      <Item title="Grafana usage insights">
+        <List nested={true}>
+          <Item title="Sort dashboards by popularity in search" />
+          <Item title="Find unused dashboards" />
+          <Item title="Dashboard usage stats drawer" />
+          <Item title="Dashboard presence indicators" />
+        </List>
+      </Item>
+      <Item title="Enterprise plugins">
         <List nested={true}>
           <Item title="Oracle" />
           <Item title="Splunk" />
           <Item title="Service Now" />
           <Item title="Dynatrace" />
+          <Item title="New Relic" />
           <Item title="DataDog" />
           <Item title="AppDynamics" />
+          <Item title="Amazon Timestream" />
+          <Item title="SAP HANA®" />
         </List>
       </Item>
     </List>

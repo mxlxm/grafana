@@ -1,12 +1,12 @@
 {
   "type": "panel",
-  "name": "Graph",
+  "name": "Graph (old)",
   "id": "graph",
 
   "info": {
-    "description": "Graph Panel for Grafana",
+    "description": "The old default graph panel",
     "author": {
-      "name": "Grafana Project",
+      "name": "Grafana Labs",
       "url": "https://grafana.com"
     },
     "logos": {

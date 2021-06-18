@@ -1,22 +1,25 @@
-import React, { useState } from 'react';
-import { Legend } from './Legend';
-
+import React from 'react';
+import { ValidateResult } from 'react-hook-form';
+import { Story } from '@storybook/react';
+import {
+  Field,
+  Legend,
+  Input,
+  Button,
+  Form,
+  Switch,
+  Checkbox,
+  Select,
+  InputControl,
+  TextArea,
+  RadioButtonGroup,
+} from '@grafana/ui';
 import { withCenteredStory } from '../../utils/storybook/withCenteredStory';
 import { withStoryContainer } from '../../utils/storybook/withStoryContainer';
-import { Field } from './Field';
-import { Input } from './Input/Input';
-import { Button } from './Button';
-import { Form } from './Form';
-import { Switch } from './Switch';
-import { Checkbox } from './Checkbox';
-
-import { RadioButtonGroup } from './RadioButtonGroup/RadioButtonGroup';
-import { Select } from './Select/Select';
-import Forms from './index';
 import mdx from './Form.mdx';
 
 export default {
-  title: 'Forms/Test forms',
+  title: 'Forms/Form',
   decorators: [withStoryContainer, withCenteredStory],
   parameters: {
     docs: {
@@ -41,19 +44,20 @@ const selectOptions = [
 ];
 
 interface FormDTO {
-  name: string;
-  email: string;
-  username: string;
-  checkbox: boolean;
+  name?: string;
+  email?: string;
+  username?: string;
+  checkbox?: boolean;
   switch: boolean;
   radio: string;
   select: string;
+  text?: string;
   nested: {
     path: string;
   };
 }
 
-const renderForm = (defaultValues?: Partial<FormDTO>) => (
+const renderForm = (defaultValues?: FormDTO) => (
   <Form
     defaultValues={defaultValues}
     onSubmit={(data: FormDTO) => {
@@ -66,47 +70,48 @@ const renderForm = (defaultValues?: Partial<FormDTO>) => (
           <Legend>Edit user</Legend>
 
           <Field label="Name" invalid={!!errors.name} error="Name is required">
-            <Input name="name" placeholder="Roger Waters" size="md" ref={register({ required: true })} />
+            <Input {...register('name', { required: true })} placeholder="Roger Waters" />
           </Field>
 
           <Field label="Email" invalid={!!errors.email} error="E-mail is required">
-            <Input
-              id="email"
-              name="email"
-              placeholder="roger.waters@grafana.com"
-              size="md"
-              ref={register({ required: true })}
-            />
+            <Input {...register('email', { required: true })} id="email" placeholder="roger.waters@grafana.com" />
           </Field>
 
           <Field label="Username">
-            <Input name="username" placeholder="mr.waters" size="md" ref={register} />
+            <Input {...register('username')} placeholder="mr.waters" />
           </Field>
           <Field label="Nested object">
-            <Input name="nested.path" placeholder="Nested path" size="md" ref={register} />
+            <Input {...register('nested.path')} placeholder="Nested path" />
+          </Field>
+
+          <Field label="Textarea" invalid={!!errors.text} error="Text is required">
+            <TextArea {...register('text', { required: true })} placeholder="Long text" />
           </Field>
 
           <Field label="Checkbox" invalid={!!errors.checkbox} error="We need your consent">
-            <Checkbox name="checkbox" label="Do you consent?" ref={register({ required: true })} />
+            <Checkbox {...register('checkbox', { required: true })} label="Do you consent?" />
           </Field>
 
           <Field label="Switch">
-            <Switch name="switch" ref={register} />
+            <Switch name="switch" {...register} />
           </Field>
 
           <Field label="RadioButton">
-            <Forms.InputControl name="radio" control={control} options={selectOptions} as={RadioButtonGroup} />
+            <InputControl
+              name="radio"
+              control={control}
+              render={({ field }) => <RadioButtonGroup {...field} options={selectOptions} />}
+            />
           </Field>
 
-          <Field label="RadioButton" invalid={!!errors.select}>
-            <Forms.InputControl
+          <Field label="Select" invalid={!!errors.select} error="Select is required">
+            <InputControl
               name="select"
               control={control}
               rules={{
                 required: true,
               }}
-              options={selectOptions}
-              as={Select}
+              render={({ field }) => <Select {...field} options={selectOptions} />}
             />
           </Field>
 
@@ -117,11 +122,11 @@ const renderForm = (defaultValues?: Partial<FormDTO>) => (
   </Form>
 );
 
-export const basic = () => {
+export const Basic = () => {
   return <>{renderForm()}</>;
 };
 
-export const defaultValues = () => {
+export const DefaultValues = () => {
   const defaultValues = [
     {
       name: 'Roger Waters',
@@ -132,29 +137,59 @@ export const defaultValues = () => {
       select: 'option1',
       switch: true,
     },
-    {
-      name: 'John Waters',
-      nested: {
-        path: 'Nested path default value updated',
-      },
-      radio: 'option1',
-      select: 'option2',
-      switch: false,
-    },
   ];
-  const [defaultsIdx, setDefaultsIdx] = useState(0);
 
+  return <>{renderForm(defaultValues[0])}</>;
+};
+
+export const AsyncValidation: Story = ({ passAsyncValidation }) => {
   return (
     <>
-      {renderForm(defaultValues[defaultsIdx])}
-      <Button
-        onClick={() => {
-          setDefaultsIdx(s => (s + 1) % 2);
+      <Form
+        onSubmit={(data: FormDTO) => {
+          alert('Submitted successfully!');
         }}
-        variant="secondary"
       >
-        Change default values
-      </Button>
+        {({ register, control, errors, formState }) =>
+          (console.log(errors) as any) || (
+            <>
+              <Legend>Edit user</Legend>
+
+              <Field label="Name" invalid={!!errors.name} error="Username is already taken">
+                <Input
+                  placeholder="Roger Waters"
+                  {...register('name', { validate: validateAsync(passAsyncValidation) })}
+                />
+              </Field>
+
+              <Button type="submit" disabled={formState.isSubmitting}>
+                Submit
+              </Button>
+            </>
+          )
+        }
+      </Form>
     </>
   );
+};
+AsyncValidation.args = {
+  passAsyncValidation: true,
+};
+
+const validateAsync = (shouldPass: boolean) => async () => {
+  try {
+    await new Promise<ValidateResult | void>((resolve, reject) => {
+      setTimeout(() => {
+        if (shouldPass) {
+          resolve();
+        } else {
+          reject('Something went wrong...');
+        }
+      }, 2000);
+    });
+    return true;
+  } catch (e) {
+    console.log(e);
+    return false;
+  }
 };

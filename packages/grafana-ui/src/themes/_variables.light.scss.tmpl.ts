@@ -1,9 +1,10 @@
 /* eslint-disable max-len */
 
-import { GrafanaTheme } from '@grafana/data';
 import { renderGeneratedFileBanner } from '../utils/generatedFileBanner';
+import { styleMixins } from '.';
+import { GrafanaTheme2 } from '@grafana/data';
 
-export const lightThemeVarsTemplate = (theme: GrafanaTheme) =>
+export const lightThemeVarsTemplate = (theme: GrafanaTheme2) =>
   `${renderGeneratedFileBanner('grafana-ui/src/themes/light.ts', 'grafana-ui/src/themes/_variable.light.scss.tmpl.ts')}
 // Global values
 // --------------------------------------------------
@@ -12,90 +13,108 @@ $theme-name: light;
 
 // New Colors
 // -------------------------
-$blue-faint: ${theme.colors.blueFaint};
-$blue-light: ${theme.colors.blueLight};
-$blue-base: ${theme.colors.blueBase};
-$blue-shade: ${theme.colors.blueShade};
-$red-base: ${theme.colors.redBase};
-$red-shade: ${theme.colors.redShade};
-$green-base: ${theme.colors.greenBase};
-$green-shade: ${theme.colors.greenShade};
-$orange-dark: ${theme.colors.orangeDark};
+$blue-light: ${theme.colors.primary.text};
+$blue-base: ${theme.colors.primary.main};
+$blue-shade: ${theme.colors.primary.shade};
+$red-base: ${theme.colors.error.main};
+$red-shade: ${theme.colors.error.shade};
+$green-base: ${theme.colors.success.main};
+$green-shade: ${theme.colors.success.shade};
+$orange-dark: ${theme.v1.palette.orangeDark};
+
+$gray98: ${theme.v1.palette.gray98};
+$gray95: ${theme.v1.palette.gray95};
+$gray85: ${theme.v1.palette.gray85};
+$gray70: ${theme.v1.palette.gray70};
+$gray60: ${theme.v1.palette.gray60};
+$gray33: ${theme.v1.palette.gray33};
+$gray25: ${theme.v1.palette.gray25};
+$gray15: ${theme.v1.palette.gray15};
+$gray10: ${theme.v1.palette.gray10};
+$gray05: ${theme.v1.palette.gray05};
 
 // Grays
 // -------------------------
-$black: ${theme.colors.black};
+$black: ${theme.v1.palette.black};
 
-$dark-1: ${theme.colors.dark1};
-$dark-2: ${theme.colors.dark2};
-$dark-4: ${theme.colors.dark4};
-$dark-10: ${theme.colors.dark10};
-$gray-1: ${theme.colors.gray1};
-$gray-2: ${theme.colors.gray2};
-$gray-3: ${theme.colors.gray3};
-$gray-4: ${theme.colors.gray4};
-$gray-5: ${theme.colors.gray5};
-$gray-6: ${theme.colors.gray6};
-$gray-7: ${theme.colors.gray7};
+$dark-1: ${theme.v1.palette.dark1};
+$dark-2: ${theme.v1.palette.dark2};
+$dark-4: ${theme.v1.palette.dark4};
+$dark-10: ${theme.v1.palette.dark10};
+$gray-1: ${theme.v1.palette.gray1};
+$gray-2: ${theme.v1.palette.gray2};
+$gray-3: ${theme.v1.palette.gray3};
+$gray-4: ${theme.v1.palette.gray4};
+$gray-5: ${theme.v1.palette.gray5};
+$gray-6: ${theme.v1.palette.gray6};
+$gray-7: ${theme.v1.palette.gray7};
 
-$white: ${theme.colors.white};
+$white: ${theme.v1.palette.white};
+
+$layer0: ${theme.colors.background.canvas};
+$layer1: ${theme.colors.background.primary};
+$layer2: ${theme.colors.background.secondary};
+
+$divider: ${theme.colors.border.weak};
+$border0: ${theme.colors.border.weak};
+$border1: ${theme.colors.border.medium};
 
 // Accent colors
 // -------------------------
-$blue: ${theme.colors.blue};
+$blue: ${theme.v1.colors.textBlue};
 $red: $red-base;
-$yellow: ${theme.colors.yellow};
-$orange: ${theme.colors.orange};
-$purple: ${theme.colors.purple};
-$variable: ${theme.colors.variable};
+$yellow: ${theme.v1.palette.yellow};
+$orange: ${theme.v1.palette.orange};
+$purple: ${theme.v1.palette.purple};
+$variable: ${theme.v1.colors.textBlue};
 
-$brand-primary: ${theme.colors.brandPrimary};
-$brand-success: ${theme.colors.brandSuccess};
-$brand-warning: ${theme.colors.brandWarning};
-$brand-danger: ${theme.colors.brandDanger};
+$brand-primary: ${theme.v1.palette.brandPrimary};
+$brand-success: ${theme.v1.palette.brandSuccess};
+$brand-warning: ${theme.v1.palette.brandWarning};
+$brand-danger: ${theme.v1.palette.brandDanger};
 
-$query-red: ${theme.colors.queryRed};
-$query-green: ${theme.colors.queryGreen};
-$query-purple: ${theme.colors.queryPurple};
-$query-orange: ${theme.colors.orange};
-$query-keyword: ${theme.colors.queryKeyword};
+$query-red: ${theme.v1.palette.queryRed};
+$query-green: ${theme.v1.palette.queryGreen};
+$query-purple: ${theme.v1.palette.queryPurple};
+$query-orange: ${theme.v1.palette.orange};
 
 // Status colors
 // -------------------------
-$online: ${theme.colors.online};
-$warn: ${theme.colors.warn};
-$critical: ${theme.colors.critical};
+$online: ${theme.colors.success.text};
+$warn: ${theme.colors.warning.text};
+$critical: ${theme.colors.error.text};
+
 
 // Scaffolding
 // -------------------------
-$body-bg: ${theme.colors.bodyBg};
-$page-bg: ${theme.colors.pageBg};
+$body-bg: ${theme.v1.colors.bodyBg};
+$page-bg: ${theme.v1.colors.bodyBg};
+$dashboard-bg: ${theme.v1.colors.dashboardBg};
 
-$body-color: ${theme.colors.body};
-$text-color: ${theme.colors.text};
-$text-color-strong: ${theme.colors.textStrong};
-$text-color-weak: ${theme.colors.textWeak};
-$text-color-faint: ${theme.colors.textFaint};
-$text-color-emphasis: ${theme.colors.textEmphasis};
+$text-color: ${theme.v1.colors.text};
+$text-color-strong: ${theme.v1.colors.textStrong};
+$text-color-semi-weak: ${theme.v1.colors.textSemiWeak};
+$text-color-weak: ${theme.v1.colors.textWeak};
+$text-color-faint: ${theme.v1.colors.textFaint};
+$text-color-emphasis: ${theme.v1.colors.textStrong};
+$text-blue: ${theme.v1.colors.textBlue};
 
 $text-shadow-faint: none;
 
 // gradients
 $brand-gradient-horizontal: linear-gradient(to right, #f05a28 30%, #fbca0a 99%);
 $brand-gradient-vertical: linear-gradient(#f05a28 30%, #fbca0a 99%);
-$page-gradient: linear-gradient(180deg, $white 10px, $gray-7 100px);
-$edit-gradient: linear-gradient(-60deg, $gray-7, #f5f6f9 70%, $gray-7 98%);
 
 // Links
 // -------------------------
-$link-color: ${theme.colors.link};
-$link-color-disabled: ${theme.colors.linkDisabled};
-$link-hover-color: ${theme.colors.linkHover};
-$external-link-color: ${theme.colors.linkExternal};
+$link-color: ${theme.v1.colors.link};
+$link-color-disabled: ${theme.v1.colors.linkDisabled};
+$link-hover-color: ${theme.v1.colors.linkHover};
+$external-link-color: ${theme.v1.colors.linkExternal};
 
 // Typography
 // -------------------------
-$headings-color: ${theme.colors.headingColor};
+$headings-color: ${theme.v1.colors.textHeading};
 $abbr-border-color: $gray-2 !default;
 $text-muted: $text-color-weak;
 
@@ -103,35 +122,35 @@ $hr-border-color: $gray-4 !default;
 
 // Panel
 // -------------------------
-$panel-bg: ${theme.colors.panelBg};
-$panel-border: solid 1px $gray-5;
-$panel-header-hover-bg: $gray-6;
-$panel-corner: $gray-4;
+$panel-bg: ${theme.components.panel.background};
+$panel-border: 1px solid ${theme.components.panel.borderColor};
+$panel-header-hover-bg: ${theme.colors.action.hover};
+$panel-box-shadow: ${theme.components.panel.boxShadow};
+$panel-corner: $panel-bg;
 
 // Page header
-$page-header-bg: linear-gradient(90deg, $white, $gray-7);
+$page-header-bg: ${theme.v1.colors.pageHeaderBg};
 $page-header-shadow: inset 0px -3px 10px $gray-6;
-$page-header-border-color: $gray-4;
+$page-header-border-color: ${theme.v1.colors.pageHeaderBorder};
 
 $divider-border-color: $gray-2;
 
 // Graphite Target Editor
-$tight-form-func-bg: $gray-5;
-$tight-form-func-highlight-bg: $gray-6;
+$tight-form-func-bg: ${theme.v1.colors.bg2};
+$tight-form-func-highlight-bg: ${styleMixins.hoverColor(theme.v1.colors.bg2, theme.v1)};
 
-$modal-backdrop-bg: $body-bg;
+$modal-backdrop-bg: ${theme.v1.colors.bg1};
 $code-tag-bg: $gray-6;
 $code-tag-border: $gray-4;
 
 // cards
-$card-background: linear-gradient(135deg, $gray-6, $gray-7);
-$card-background-hover: linear-gradient(135deg, $gray-6, $gray-5);
-$card-shadow: -1px -1px 0 0 hsla(0, 0%, 100%, 0.1), 1px 1px 0 0 rgba(0, 0, 0, 0.1);
+$card-background: ${theme.colors.background.secondary};
+$card-background-hover: ${theme.colors.background.secondary};
+$card-shadow: none;
 
 // Lists
 $list-item-bg: $gray-7;
 $list-item-hover-bg: $gray-6;
-$list-item-link-color: $text-color;
 $list-item-shadow: $card-shadow;
 
 $empty-list-cta-bg: $gray-6;
@@ -143,19 +162,18 @@ $scrollbarBorder: $gray-7;
 
 // Tables
 // -------------------------
-$table-bg-accent: $gray-5; // for striping
-$table-border: $gray-3; // table and cell border
-
-$table-bg-odd: $gray-6;
-$table-bg-hover: $gray-5;
+$table-bg-accent: ${theme.colors.background.secondary};
+$table-border: ${theme.colors.border.medium};
+$table-bg-odd: ${theme.colors.emphasize(theme.colors.background.primary, 0.02)};
+$table-bg-hover: ${theme.colors.emphasize(theme.colors.background.primary, 0.05)};
 
 // Buttons
 // -------------------------
-$btn-primary-bg: $green-base;
-$btn-primary-bg-hl: $green-shade;
+$btn-secondary-bg: $gray-5;
+$btn-secondary-bg-hl: $gray-4;
 
-$btn-secondary-bg: $blue-base;
-$btn-secondary-bg-hl: $blue-shade;
+$btn-primary-bg: $blue-base;
+$btn-primary-bg-hl: $blue-shade;
 
 $btn-success-bg: $green-base;
 $btn-success-bg-hl: $green-shade;
@@ -164,7 +182,6 @@ $btn-danger-bg: $red-base;
 $btn-danger-bg-hl: $red-shade;
 
 $btn-inverse-bg: $gray-5;
-$btn-inverse-bg-hl: darken($gray-5, 5%);
 $btn-inverse-bg-hl: $gray-4;
 $btn-inverse-text-color: $gray-1;
 $btn-inverse-text-shadow: 0 1px 0 rgba(255, 255, 255, 0.4);
@@ -184,25 +201,20 @@ $btn-active-box-shadow: 0px 0px 4px rgba(234, 161, 51, 0.6);
 
 // Forms
 // -------------------------
-$input-bg: $white;
-$input-bg-disabled: $gray-5;
+$input-bg: ${theme.components.input.background};
+$input-bg-disabled: ${theme.colors.action.disabledBackground};
 
-$input-color: $dark-2;
-$input-border-color: $gray-5;
+$input-color: ${theme.components.input.text};
+$input-border-color: ${theme.components.input.borderColor};
 $input-box-shadow: none;
-$input-border-focus: $gray-5 !default;
-$input-box-shadow-focus: $blue-light !default;
-$input-color-placeholder: $gray-4 !default;
-$input-label-bg: $gray-5;
-$input-label-border-color: $gray-5;
-$input-color-select-arrow: $gray-1;
-
-// Input placeholder text color
-$placeholderText: $gray-2;
+$input-border-focus: ${theme.v1.palette.blue95};
+$input-box-shadow-focus: ${theme.v1.palette.blue95};
+$input-color-placeholder: ${theme.v1.colors.formInputPlaceholderText};
+$input-label-bg: ${theme.v1.colors.bg2};
+$input-color-select-arrow: ${theme.v1.palette.gray60};
 
 // search
 $search-shadow: 0 1px 5px 0 $gray-5;
-$search-filter-box-bg: $gray-7;
 
 // Typeahead
 $typeahead-shadow: 0 5px 10px 0 $gray-5;
@@ -211,10 +223,11 @@ $typeahead-selected-color: $yellow;
 
 // Dropdowns
 // -------------------------
-$dropdownBackground: $white;
-$dropdownBorder: $gray-4;
-$dropdownDividerTop: $gray-6;
-$dropdownDividerBottom: $white;
+$dropdownBackground: ${theme.colors.background.primary};
+$dropdownBorder: ${theme.colors.border.weak};
+$dropdownDividerTop: ${theme.colors.border.weak};
+$dropdownDividerBottom: ${theme.colors.border.weak};
+$dropdownShadow: ${theme.shadows.z3};
 
 $dropdownLinkColor: $dark-2;
 $dropdownLinkColorHover: $link-color;
@@ -229,70 +242,64 @@ $horizontalComponentOffset: 180px;
 // Navbar
 // -------------------------
 $navbarHeight: 52px;
-
-$navbarBackground: $white;
 $navbarBorder: 1px solid $gray-5;
-
-$navbarButtonBackground: lighten($navbarBackground, 3%);
-$navbarButtonBackgroundHighlight: lighten($navbarBackground, 5%);
-
-$navbar-button-border: $gray-4;
 
 // Sidemenu
 // -------------------------
-$side-menu-bg: $dark-1;
+$side-menu-bg: ${theme.v1.palette.gray15};
+$side-menu-border: 1px solid ${theme.v1.palette.gray25};
 $side-menu-bg-mobile: rgba(0, 0, 0, 0); //$gray-6;
-$side-menu-item-hover-bg: $gray-1;
+$side-menu-item-hover-bg: ${theme.v1.palette.gray25};
 $side-menu-shadow: 5px 0px 10px -5px $gray-1;
-$side-menu-link-color: $gray-6;
+$side-menu-link-color: $gray-4;
+$side-menu-icon-color: ${theme.v1.palette.gray70};
+$side-menu-header-color: ${theme.v1.palette.gray95};
 
 // Menu dropdowns
 // -------------------------
-$menu-dropdown-bg: $gray-7;
-$menu-dropdown-hover-bg: $gray-6;
-$menu-dropdown-shadow: 5px 5px 10px -5px $gray-1;
+$menu-dropdown-bg: ${theme.colors.background.primary};
+$menu-dropdown-hover-bg: ${theme.colors.action.hover};
+$menu-dropdown-shadow: ${theme.shadows.z3};
 
 // Tabs
 // -------------------------
 $tab-border-color: $gray-5;
 
-// Toolbar
-$toolbar-bg: white;
-
 // Form states and alerts
 // -------------------------
-$warning-text-color: lighten($orange, 10%);
-$error-text-color: $red-shade;
-$success-text-color: lighten($green-base, 10%);
+$warning-text-color: ${theme.colors.warning.text};
+$error-text-color: ${theme.colors.error.text};
+$success-text-color: ${theme.colors.success.text};
 
-$alert-error-bg: linear-gradient(90deg, $red-base, $red-shade);
-$alert-success-bg: linear-gradient(90deg, $green-base, $green-shade);
-$alert-warning-bg: linear-gradient(90deg, $red-base, $red-shade);
-$alert-info-bg: linear-gradient(100deg, $blue-base, $blue-shade);
-
-// popover
-$popover-bg: $page-bg;
-$popover-color: $text-color;
-$popover-border-color: $gray-5;
-$popover-header-bg: $gray-5;
-$popover-shadow: 0 0 20px $white;
-
-$popover-help-bg: $btn-secondary-bg;
-$popover-help-color: $gray-6;
-
-$popover-error-bg: $btn-danger-bg;
+$alert-error-bg: ${theme.colors.error.main};
+$alert-success-bg: ${theme.colors.success.main};
+$alert-warning-bg: ${theme.colors.warning.main};
+$alert-info-bg: ${theme.colors.warning.main};
 
 // Tooltips and popovers
-// -------------------------
-$tooltipColor: $popover-help-color;
-$tooltipArrowWidth: 5px;
-$tooltipLinkColor: lighten($popover-help-color, 5%);
+$tooltipBackground: ${theme.components.tooltip.background};
+$tooltipColor: ${theme.components.tooltip.text};
+$tooltipArrowColor: ${theme.components.tooltip.background};
+$tooltipBackgroundError: ${theme.colors.error.main};
+$tooltipShadow: ${theme.shadows.z2};
+
+$popover-bg: ${theme.colors.background.primary};
+$popover-color: ${theme.colors.text.primary};
+$popover-border-color: ${theme.colors.border.weak};
+$popover-header-bg: ${theme.colors.background.secondary};
+$popover-shadow: ${theme.shadows.z3};
+
 $graph-tooltip-bg: $gray-5;
 
-$tooltipBackground: $gray-1;
-$tooltipColor: $gray-7;
-$tooltipArrowColor: $tooltipBackground; // Used by Angular tooltip
-$tooltipBackgroundError: $brand-danger;
+$tooltipArrowWidth: 5px;
+$tooltipLinkColor: lighten($tooltipColor, 5%);
+
+$popover-error-bg: $btn-danger-bg;
+$popover-help-bg: $tooltipBackground;
+$popover-help-color: $tooltipColor;
+
+$popover-code-bg: ${theme.v1.colors.bg1};
+$popover-code-boxshadow: 0 0 5px $gray60;
 
 // images
 $checkboxImageUrl: '../img/checkbox_white.png';
@@ -320,14 +327,14 @@ $json-explorer-url-color: $blue-base;
 
 // Changelog and diff
 // -------------------------
-$diff-label-bg: $gray-7;
+$diff-label-bg: ${theme.v1.colors.bg3};
 $diff-label-fg: $gray-2;
 
 $diff-arrow-color: $dark-2;
-$diff-group-bg: $gray-6;
+$diff-group-bg: ${theme.v1.colors.bg2};
 
-$diff-json-bg: $gray-6;
-$diff-json-fg: $gray-1;
+$diff-json-bg: ${theme.v1.colors.bg2};
+$diff-json-fg: ${theme.v1.colors.text};
 
 $diff-json-added: $blue-shade;
 $diff-json-deleted: $red-shade;
@@ -348,7 +355,7 @@ $variable-option-bg: $dropdownLinkBackgroundHover;
 $switch-bg: $white;
 $switch-slider-color: $gray-7;
 $switch-slider-off-bg: $gray-5;
-$switch-slider-on-bg: linear-gradient(90deg, #ff9830, #e55400);
+$switch-slider-on-bg: ${theme.v1.palette.blue77};
 $switch-slider-shadow: 0 0 3px $dark-2;
 
 //Checkbox
@@ -366,24 +373,21 @@ $panel-editor-viz-item-shadow: 0 0 4px $gray-3;
 $panel-editor-viz-item-border: 1px solid $gray-3;
 $panel-editor-viz-item-shadow-hover: 0 0 4px $blue-light;
 $panel-editor-viz-item-border-hover: 1px solid $blue-light;
-$panel-editor-viz-item-bg: $white;
+$panel-editor-viz-item-bg: $card-background;
 $panel-editor-tabs-line-color: $dark-2;
 
 $panel-editor-viz-item-bg-hover: lighten($blue-base, 45%);
 
-$panel-options-group-border: none;
-$panel-options-group-header-bg: $gray-5;
-
-$panel-grid-placeholder-bg: $blue-faint;
-$panel-grid-placeholder-shadow: 0 0 4px $blue-light;
+$panel-grid-placeholder-bg: lighten(${theme.v1.palette.blue95}, 30%);
+$panel-grid-placeholder-shadow: 0 0 4px ${theme.v1.palette.blue95};
 
 // logs
-$logs-color-unkown: $gray-5;
+$logs-color-unknown: $gray-5;
 
 // toggle-group
 $button-toggle-group-btn-active-bg: $brand-primary;
 $button-toggle-group-btn-active-shadow: inset 0 0 4px $white;
-$button-toggle-group-btn-seperator-border: 1px solid $gray-6;
+$button-toggle-group-btn-separator-border: 1px solid $gray-6;
 
 $vertical-resize-handle-bg: $gray-4;
 $vertical-resize-handle-dots: $gray-3;
@@ -392,4 +396,5 @@ $vertical-resize-handle-dots-hover: $gray-2;
 // Calendar
 $calendar-bg-days: $white;
 $calendar-bg-now: $gray-6;
+
 `;

@@ -1,48 +1,51 @@
-/**
- * This is a stub implementation only for correct styles to be applied
- */
+import React, { HTMLProps, useEffect } from 'react';
+import { useForm, Mode, DeepPartial, UnpackNestedValue, SubmitHandler } from 'react-hook-form';
+import { FormAPI } from '../../types';
+import { css } from '@emotion/css';
 
-import React, { useEffect } from 'react';
-import { useForm, Mode, OnSubmit, DeepPartial, FormContextValues } from 'react-hook-form';
-import { GrafanaTheme } from '@grafana/data';
-import { css } from 'emotion';
-import { stylesFactory, useTheme } from '../../themes';
-
-const getFormStyles = stylesFactory((theme: GrafanaTheme) => {
-  return {
-    form: css`
-      margin-bottom: ${theme.spacing.formMargin};
-    `,
-  };
-});
-
-type FormAPI<T> = Pick<FormContextValues<T>, 'register' | 'errors' | 'control'>;
-
-interface FormProps<T> {
+interface FormProps<T> extends Omit<HTMLProps<HTMLFormElement>, 'onSubmit'> {
   validateOn?: Mode;
-  defaultValues?: DeepPartial<T>;
-  onSubmit: OnSubmit<T>;
+  validateOnMount?: boolean;
+  validateFieldsOnMount?: string | string[];
+  defaultValues?: UnpackNestedValue<DeepPartial<T>>;
+  onSubmit: SubmitHandler<T>;
   children: (api: FormAPI<T>) => React.ReactNode;
+  /** Sets max-width for container. Use it instead of setting individual widths on inputs.*/
+  maxWidth?: number | 'none';
 }
 
-export function Form<T>({ validateOn, defaultValues, onSubmit, children }: FormProps<T>) {
-  const theme = useTheme();
-  const { handleSubmit, register, errors, control, reset, getValues } = useForm<T>({
-    mode: validateOn || 'onSubmit',
-    defaultValues: {
-      ...defaultValues,
-    },
+export function Form<T>({
+  defaultValues,
+  onSubmit,
+  validateOnMount = false,
+  validateFieldsOnMount,
+  children,
+  validateOn = 'onSubmit',
+  maxWidth = 600,
+  ...htmlProps
+}: FormProps<T>) {
+  const { handleSubmit, trigger, formState, ...rest } = useForm<T>({
+    mode: validateOn,
+    defaultValues,
   });
 
   useEffect(() => {
-    reset({ ...getValues(), ...defaultValues });
-  }, [defaultValues]);
-
-  const styles = getFormStyles(theme);
+    if (validateOnMount) {
+      //@ts-expect-error
+      trigger(validateFieldsOnMount);
+    }
+  }, [trigger, validateFieldsOnMount, validateOnMount]);
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className={styles.form}>
-      {children({ register, errors, control })}
+    <form
+      className={css`
+        max-width: ${maxWidth !== 'none' ? maxWidth + 'px' : maxWidth};
+        width: 100%;
+      `}
+      onSubmit={handleSubmit(onSubmit)}
+      {...htmlProps}
+    >
+      {children({ errors: formState.errors, formState, ...rest })}
     </form>
   );
 }

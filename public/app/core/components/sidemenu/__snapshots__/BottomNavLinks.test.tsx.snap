@@ -4,13 +4,13 @@ exports[`Render should render children 1`] = `
 <div
   className="sidemenu-item dropdown dropup"
 >
-  <a
+  <Link
     className="sidemenu-link"
   >
     <span
       className="icon-circle sidemenu-icon"
     />
-  </a>
+  </Link>
   <ul
     className="dropdown-menu dropdown-menu--sidemenu"
     role="menu"
@@ -58,13 +58,13 @@ exports[`Render should render component 1`] = `
 <div
   className="sidemenu-item dropdown dropup"
 >
-  <a
+  <Link
     className="sidemenu-link"
   >
     <span
       className="icon-circle sidemenu-icon"
     />
-  </a>
+  </Link>
   <ul
     className="dropdown-menu dropdown-menu--sidemenu"
     role="menu"
@@ -86,13 +86,13 @@ exports[`Render should render organization switcher 1`] = `
 <div
   className="sidemenu-item dropdown dropup"
 >
-  <a
+  <Link
     className="sidemenu-link"
   >
     <span
       className="icon-circle sidemenu-icon"
     />
-  </a>
+  </Link>
   <ul
     className="dropdown-menu dropdown-menu--sidemenu"
     role="menu"
@@ -105,21 +105,22 @@ exports[`Render should render organization switcher 1`] = `
       >
         <div>
           <div
+            className="sidemenu-org-switcher__org-current"
+          >
+            Current Org.:
+          </div>
+          <div
             className="sidemenu-org-switcher__org-name"
           >
             Grafana
-          </div>
-          <div
-            className="sidemenu-org-switcher__org-current"
-          >
-            Current Org:
           </div>
         </div>
         <div
           className="sidemenu-org-switcher__switch"
         >
-          <i
-            className="fa fa-fw fa-random"
+          <Icon
+            className="css-f8is2k"
+            name="arrow-random"
           />
           Switch
         </div>
@@ -143,13 +144,13 @@ exports[`Render should render subtitle 1`] = `
 <div
   className="sidemenu-item dropdown dropup"
 >
-  <a
+  <Link
     className="sidemenu-link"
   >
     <span
       className="icon-circle sidemenu-icon"
     />
-  </a>
+  </Link>
   <ul
     className="dropdown-menu dropdown-menu--sidemenu"
     role="menu"

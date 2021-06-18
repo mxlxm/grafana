@@ -1,18 +1,12 @@
 import React, { Component } from 'react';
-import _ from 'lodash';
+import { debounce, isNil } from 'lodash';
 import { AsyncSelect } from '@grafana/ui';
-import { debounce } from 'lodash';
+import { SelectableValue } from '@grafana/data';
 import { getBackendSrv } from '@grafana/runtime';
-
-export interface Team {
-  id: number;
-  label: string;
-  name: string;
-  avatarUrl: string;
-}
+import { Team } from 'app/types';
 
 export interface Props {
-  onSelected: (team: Team) => void;
+  onSelected: (team: SelectableValue<Team>) => void;
   className?: string;
 }
 
@@ -37,19 +31,17 @@ export class TeamPicker extends Component<Props, State> {
   search(query?: string) {
     this.setState({ isLoading: true });
 
-    if (_.isNil(query)) {
+    if (isNil(query)) {
       query = '';
     }
 
     return getBackendSrv()
       .get(`/api/teams/search?perpage=100&page=1&query=${query}`)
-      .then((result: any) => {
-        const teams = result.teams.map((team: any) => {
+      .then((result: { teams: Team[] }) => {
+        const teams: Array<SelectableValue<Team>> = result.teams.map((team) => {
           return {
-            id: team.id,
-            value: team.id,
+            value: team,
             label: team.name,
-            name: team.name,
             imgUrl: team.avatarUrl,
           };
         });
@@ -63,7 +55,7 @@ export class TeamPicker extends Component<Props, State> {
     const { onSelected, className } = this.props;
     const { isLoading } = this.state;
     return (
-      <div className="user-picker">
+      <div className="user-picker" data-testid="teamPicker">
         <AsyncSelect
           isLoading={isLoading}
           defaultOptions={true}
@@ -71,7 +63,7 @@ export class TeamPicker extends Component<Props, State> {
           onChange={onSelected}
           className={className}
           placeholder="Select a team"
-          noOptionsMessage={() => 'No teams found'}
+          noOptionsMessage="No teams found"
         />
       </div>
     );

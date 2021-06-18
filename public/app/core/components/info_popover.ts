@@ -1,4 +1,4 @@
-import _ from 'lodash';
+import { each } from 'lodash';
 import coreModule from 'app/core/core_module';
 // @ts-ignore
 import Drop from 'tether-drop';
@@ -6,7 +6,7 @@ import Drop from 'tether-drop';
 export function infoPopover() {
   return {
     restrict: 'E',
-    template: '<i class="fa fa-info-circle"></i>',
+    template: `<icon name="'info-circle'" style="margin-left: 10px;" size="'xs'"></icon>`,
     transclude: true,
     link: (scope: any, elem: any, attrs: any, ctrl: any, transclude: any) => {
       const offset = attrs.offset || '0 -10px';
@@ -28,7 +28,7 @@ export function infoPopover() {
         const content = document.createElement('div');
         content.className = 'markdown-html';
 
-        _.each(clone, node => {
+        each(clone, (node) => {
           content.appendChild(node);
         });
 

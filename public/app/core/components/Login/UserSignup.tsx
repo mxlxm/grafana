@@ -1,12 +1,26 @@
 import React, { FC } from 'react';
+import { LinkButton, VerticalGroup } from '@grafana/ui';
+import { css } from '@emotion/css';
+import { getConfig } from 'app/core/config';
 
 export const UserSignup: FC<{}> = () => {
+  const href = getConfig().verifyEmailEnabled ? `${getConfig().appSubUrl}/verify` : `${getConfig().appSubUrl}/signup`;
+  const paddingTop = css({ paddingTop: '16px' });
+
   return (
-    <div className="login-signup-box">
-      <div className="login-signup-title p-r-1">New to Grafana?</div>
-      <a href="signup" className="btn btn-medium btn-signup btn-p-x-2">
-        Sign Up
-      </a>
-    </div>
+    <VerticalGroup>
+      <div className={paddingTop}>New to Grafana?</div>
+      <LinkButton
+        className={css`
+          width: 100%;
+          justify-content: center;
+        `}
+        href={href}
+        variant="secondary"
+        fill="outline"
+      >
+        Sign up
+      </LinkButton>
+    </VerticalGroup>
   );
 };

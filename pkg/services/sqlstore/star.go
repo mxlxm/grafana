@@ -1,42 +1,45 @@
 package sqlstore
 
 import (
+	"context"
+
 	"github.com/grafana/grafana/pkg/bus"
-	m "github.com/grafana/grafana/pkg/models"
+	"github.com/grafana/grafana/pkg/models"
 )
 
 func init() {
 	bus.AddHandler("sql", StarDashboard)
 	bus.AddHandler("sql", UnstarDashboard)
 	bus.AddHandler("sql", GetUserStars)
-	bus.AddHandler("sql", IsStarredByUser)
+	bus.AddHandlerCtx("sql", IsStarredByUserCtx)
 }
 
-func IsStarredByUser(query *m.IsStarredByUserQuery) error {
-	rawSql := "SELECT 1 from star where user_id=? and dashboard_id=?"
-	results, err := x.Query(rawSql, query.UserId, query.DashboardId)
+func IsStarredByUserCtx(ctx context.Context, query *models.IsStarredByUserQuery) error {
+	return withDbSession(ctx, x, func(dbSession *DBSession) error {
+		rawSQL := "SELECT 1 from star where user_id=? and dashboard_id=?"
+		results, err := dbSession.Query(rawSQL, query.UserId, query.DashboardId)
 
-	if err != nil {
-		return err
-	}
+		if err != nil {
+			return err
+		}
 
-	if len(results) == 0 {
+		if len(results) == 0 {
+			return nil
+		}
+
+		query.Result = true
+
 		return nil
-	}
-
-	query.Result = true
-
-	return nil
+	})
 }
 
-func StarDashboard(cmd *m.StarDashboardCommand) error {
+func StarDashboard(cmd *models.StarDashboardCommand) error {
 	if cmd.DashboardId == 0 || cmd.UserId == 0 {
-		return m.ErrCommandValidationFailed
+		return models.ErrCommandValidationFailed
 	}
 
 	return inTransaction(func(sess *DBSession) error {
-
-		entity := m.Star{
+		entity := models.Star{
 			UserId:      cmd.UserId,
 			DashboardId: cmd.DashboardId,
 		}
@@ -46,20 +49,20 @@ func StarDashboard(cmd *m.StarDashboardCommand) error {
 	})
 }
 
-func UnstarDashboard(cmd *m.UnstarDashboardCommand) error {
+func UnstarDashboard(cmd *models.UnstarDashboardCommand) error {
 	if cmd.DashboardId == 0 || cmd.UserId == 0 {
-		return m.ErrCommandValidationFailed
+		return models.ErrCommandValidationFailed
 	}
 
 	return inTransaction(func(sess *DBSession) error {
-		var rawSql = "DELETE FROM star WHERE user_id=? and dashboard_id=?"
-		_, err := sess.Exec(rawSql, cmd.UserId, cmd.DashboardId)
+		var rawSQL = "DELETE FROM star WHERE user_id=? and dashboard_id=?"
+		_, err := sess.Exec(rawSQL, cmd.UserId, cmd.DashboardId)
 		return err
 	})
 }
 
-func GetUserStars(query *m.GetUserStarsQuery) error {
-	var stars = make([]m.Star, 0)
+func GetUserStars(query *models.GetUserStarsQuery) error {
+	var stars = make([]models.Star, 0)
 	err := x.Where("user_id=?", query.UserId).Find(&stars)
 
 	query.Result = make(map[int64]bool)

@@ -8,10 +8,11 @@ import (
 	"time"
 
 	"github.com/grafana/grafana/pkg/api/dtos"
+	"github.com/grafana/grafana/pkg/api/response"
 	"github.com/grafana/grafana/pkg/bus"
 	"github.com/grafana/grafana/pkg/components/simplejson"
 	"github.com/grafana/grafana/pkg/infra/metrics"
-	m "github.com/grafana/grafana/pkg/models"
+	"github.com/grafana/grafana/pkg/models"
 	"github.com/grafana/grafana/pkg/services/guardian"
 	"github.com/grafana/grafana/pkg/setting"
 	"github.com/grafana/grafana/pkg/util"
@@ -22,7 +23,7 @@ var client = &http.Client{
 	Transport: &http.Transport{Proxy: http.ProxyFromEnvironment},
 }
 
-func GetSharingOptions(c *m.ReqContext) {
+func GetSharingOptions(c *models.ReqContext) {
 	c.JSON(200, util.DynMap{
 		"externalSnapshotURL":  setting.ExternalSnapshotUrl,
 		"externalSnapshotName": setting.ExternalSnapshotName,
@@ -37,12 +38,14 @@ type CreateExternalSnapshotResponse struct {
 	DeleteUrl string `json:"deleteUrl"`
 }
 
-func createExternalDashboardSnapshot(cmd m.CreateDashboardSnapshotCommand) (*CreateExternalSnapshotResponse, error) {
+func createExternalDashboardSnapshot(cmd models.CreateDashboardSnapshotCommand) (*CreateExternalSnapshotResponse, error) {
 	var createSnapshotResponse CreateExternalSnapshotResponse
 	message := map[string]interface{}{
 		"name":      cmd.Name,
 		"expires":   cmd.Expires,
 		"dashboard": cmd.Dashboard,
+		"key":       cmd.Key,
+		"deleteKey": cmd.DeleteKey,
 	}
 
 	messageBytes, err := simplejson.NewFromAny(message).Encode()
@@ -54,10 +57,14 @@ func createExternalDashboardSnapshot(cmd m.CreateDashboardSnapshotCommand) (*Cre
 	if err != nil {
 		return nil, err
 	}
-	defer response.Body.Close()
+	defer func() {
+		if err := response.Body.Close(); err != nil {
+			plog.Warn("Failed to close response body", "err", err)
+		}
+	}()
 
 	if response.StatusCode != 200 {
-		return nil, fmt.Errorf("Create external snapshot response status code %d", response.StatusCode)
+		return nil, fmt.Errorf("create external snapshot response status code %d", response.StatusCode)
 	}
 
 	if err := json.NewDecoder(response.Body).Decode(&createSnapshotResponse); err != nil {
@@ -68,7 +75,7 @@ func createExternalDashboardSnapshot(cmd m.CreateDashboardSnapshotCommand) (*Cre
 }
 
 // POST /api/snapshots
-func CreateDashboardSnapshot(c *m.ReqContext, cmd m.CreateDashboardSnapshotCommand) {
+func CreateDashboardSnapshot(c *models.ReqContext, cmd models.CreateDashboardSnapshotCommand) {
 	if cmd.Name == "" {
 		cmd.Name = "Unnamed snapshot"
 	}
@@ -86,7 +93,7 @@ func CreateDashboardSnapshot(c *m.ReqContext, cmd m.CreateDashboardSnapshotComma
 
 		response, err := createExternalDashboardSnapshot(cmd)
 		if err != nil {
-			c.JsonApiErr(500, "Failed to create external snaphost", err)
+			c.JsonApiErr(500, "Failed to create external snapshot", err)
 			return
 		}
 
@@ -123,7 +130,7 @@ func CreateDashboardSnapshot(c *m.ReqContext, cmd m.CreateDashboardSnapshotComma
 	}
 
 	if err := bus.Dispatch(&cmd); err != nil {
-		c.JsonApiErr(500, "Failed to create snaphost", err)
+		c.JsonApiErr(500, "Failed to create snapshot", err)
 		return
 	}
 
@@ -132,32 +139,36 @@ func CreateDashboardSnapshot(c *m.ReqContext, cmd m.CreateDashboardSnapshotComma
 		"deleteKey": cmd.DeleteKey,
 		"url":       url,
 		"deleteUrl": setting.ToAbsUrl("api/snapshots-delete/" + cmd.DeleteKey),
+		"id":        cmd.Result.Id,
 	})
 }
 
 // GET /api/snapshots/:key
-func GetDashboardSnapshot(c *m.ReqContext) {
+func GetDashboardSnapshot(c *models.ReqContext) response.Response {
 	key := c.Params(":key")
-	query := &m.GetDashboardSnapshotQuery{Key: key}
+	query := &models.GetDashboardSnapshotQuery{Key: key}
 
 	err := bus.Dispatch(query)
 	if err != nil {
-		c.JsonApiErr(500, "Failed to get dashboard snapshot", err)
-		return
+		return response.Error(500, "Failed to get dashboard snapshot", err)
 	}
 
 	snapshot := query.Result
 
 	// expired snapshots should also be removed from db
 	if snapshot.Expires.Before(time.Now()) {
-		c.JsonApiErr(404, "Dashboard snapshot not found", err)
-		return
+		return response.Error(404, "Dashboard snapshot not found", err)
+	}
+
+	dashboard, err := snapshot.DashboardJSON()
+	if err != nil {
+		return response.Error(500, "Failed to get dashboard data for dashboard snapshot", err)
 	}
 
 	dto := dtos.DashboardFullWithMeta{
-		Dashboard: snapshot.Dashboard,
+		Dashboard: dashboard,
 		Meta: dtos.DashboardMeta{
-			Type:       m.DashTypeSnapshot,
+			Type:       models.DashTypeSnapshot,
 			IsSnapshot: true,
 			Created:    snapshot.Created,
 			Expires:    snapshot.Expires,
@@ -166,8 +177,7 @@ func GetDashboardSnapshot(c *m.ReqContext) {
 
 	metrics.MApiDashboardSnapshotGet.Inc()
 
-	c.Resp.Header().Set("Cache-Control", "public, max-age=3600")
-	c.JSON(200, dto)
+	return response.JSON(200, dto).SetHeader("Cache-Control", "public, max-age=3600")
 }
 
 func deleteExternalDashboardSnapshot(externalUrl string) error {
@@ -175,7 +185,9 @@ func deleteExternalDashboardSnapshot(externalUrl string) error {
 	if err != nil {
 		return err
 	}
-	defer response.Body.Close()
+	if err := response.Body.Close(); err != nil {
+		plog.Warn("Failed closing response body", "err", err)
+	}
 
 	if response.StatusCode == 200 {
 		return nil
@@ -194,81 +206,90 @@ func deleteExternalDashboardSnapshot(externalUrl string) error {
 		}
 	}
 
-	return fmt.Errorf("Unexpected response when deleting external snapshot. Status code: %d", response.StatusCode)
+	return fmt.Errorf("unexpected response when deleting external snapshot, status code: %d", response.StatusCode)
 }
 
 // GET /api/snapshots-delete/:deleteKey
-func DeleteDashboardSnapshotByDeleteKey(c *m.ReqContext) Response {
+func DeleteDashboardSnapshotByDeleteKey(c *models.ReqContext) response.Response {
 	key := c.Params(":deleteKey")
 
-	query := &m.GetDashboardSnapshotQuery{DeleteKey: key}
+	query := &models.GetDashboardSnapshotQuery{DeleteKey: key}
 
 	err := bus.Dispatch(query)
 	if err != nil {
-		return Error(500, "Failed to get dashboard snapshot", err)
+		return response.Error(500, "Failed to get dashboard snapshot", err)
 	}
 
 	if query.Result.External {
 		err := deleteExternalDashboardSnapshot(query.Result.ExternalDeleteUrl)
 		if err != nil {
-			return Error(500, "Failed to delete external dashboard", err)
+			return response.Error(500, "Failed to delete external dashboard", err)
 		}
 	}
 
-	cmd := &m.DeleteDashboardSnapshotCommand{DeleteKey: query.Result.DeleteKey}
+	cmd := &models.DeleteDashboardSnapshotCommand{DeleteKey: query.Result.DeleteKey}
 
 	if err := bus.Dispatch(cmd); err != nil {
-		return Error(500, "Failed to delete dashboard snapshot", err)
+		return response.Error(500, "Failed to delete dashboard snapshot", err)
 	}
 
-	return JSON(200, util.DynMap{"message": "Snapshot deleted. It might take an hour before it's cleared from any CDN caches."})
+	return response.JSON(200, util.DynMap{
+		"message": "Snapshot deleted. It might take an hour before it's cleared from any CDN caches.",
+		"id":      query.Result.Id,
+	})
 }
 
 // DELETE /api/snapshots/:key
-func DeleteDashboardSnapshot(c *m.ReqContext) Response {
+func DeleteDashboardSnapshot(c *models.ReqContext) response.Response {
 	key := c.Params(":key")
 
-	query := &m.GetDashboardSnapshotQuery{Key: key}
+	query := &models.GetDashboardSnapshotQuery{Key: key}
 
 	err := bus.Dispatch(query)
 	if err != nil {
-		return Error(500, "Failed to get dashboard snapshot", err)
+		return response.Error(500, "Failed to get dashboard snapshot", err)
+	}
+	if query.Result == nil {
+		return response.Error(404, "Failed to get dashboard snapshot", nil)
 	}
 
-	if query.Result == nil {
-		return Error(404, "Failed to get dashboard snapshot", nil)
+	dashboard, err := query.Result.DashboardJSON()
+	if err != nil {
+		return response.Error(500, "Failed to get dashboard data for dashboard snapshot", err)
 	}
-	dashboard := query.Result.Dashboard
 	dashboardID := dashboard.Get("id").MustInt64()
 
 	guardian := guardian.New(dashboardID, c.OrgId, c.SignedInUser)
 	canEdit, err := guardian.CanEdit()
 	if err != nil {
-		return Error(500, "Error while checking permissions for snapshot", err)
+		return response.Error(500, "Error while checking permissions for snapshot", err)
 	}
 
 	if !canEdit && query.Result.UserId != c.SignedInUser.UserId {
-		return Error(403, "Access denied to this snapshot", nil)
+		return response.Error(403, "Access denied to this snapshot", nil)
 	}
 
 	if query.Result.External {
 		err := deleteExternalDashboardSnapshot(query.Result.ExternalDeleteUrl)
 		if err != nil {
-			return Error(500, "Failed to delete external dashboard", err)
+			return response.Error(500, "Failed to delete external dashboard", err)
 		}
 	}
 
-	cmd := &m.DeleteDashboardSnapshotCommand{DeleteKey: query.Result.DeleteKey}
+	cmd := &models.DeleteDashboardSnapshotCommand{DeleteKey: query.Result.DeleteKey}
 
 	if err := bus.Dispatch(cmd); err != nil {
-		return Error(500, "Failed to delete dashboard snapshot", err)
+		return response.Error(500, "Failed to delete dashboard snapshot", err)
 	}
 
-	return JSON(200, util.DynMap{"message": "Snapshot deleted. It might take an hour before it's cleared from any CDN caches."})
+	return response.JSON(200, util.DynMap{
+		"message": "Snapshot deleted. It might take an hour before it's cleared from any CDN caches.",
+		"id":      query.Result.Id,
+	})
 }
 
 // GET /api/dashboard/snapshots
-func SearchDashboardSnapshots(c *m.ReqContext) Response {
+func SearchDashboardSnapshots(c *models.ReqContext) response.Response {
 	query := c.Query("query")
 	limit := c.QueryInt("limit")
 
@@ -276,7 +297,7 @@ func SearchDashboardSnapshots(c *m.ReqContext) Response {
 		limit = 1000
 	}
 
-	searchQuery := m.GetDashboardSnapshotsQuery{
+	searchQuery := models.GetDashboardSnapshotsQuery{
 		Name:         query,
 		Limit:        limit,
 		OrgId:        c.OrgId,
@@ -285,12 +306,12 @@ func SearchDashboardSnapshots(c *m.ReqContext) Response {
 
 	err := bus.Dispatch(&searchQuery)
 	if err != nil {
-		return Error(500, "Search failed", err)
+		return response.Error(500, "Search failed", err)
 	}
 
-	dtos := make([]*m.DashboardSnapshotDTO, len(searchQuery.Result))
+	dtos := make([]*models.DashboardSnapshotDTO, len(searchQuery.Result))
 	for i, snapshot := range searchQuery.Result {
-		dtos[i] = &m.DashboardSnapshotDTO{
+		dtos[i] = &models.DashboardSnapshotDTO{
 			Id:          snapshot.Id,
 			Name:        snapshot.Name,
 			Key:         snapshot.Key,
@@ -304,5 +325,5 @@ func SearchDashboardSnapshots(c *m.ReqContext) Response {
 		}
 	}
 
-	return JSON(200, dtos)
+	return response.JSON(200, dtos)
 }

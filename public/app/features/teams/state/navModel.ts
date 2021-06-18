@@ -6,21 +6,21 @@ export function buildNavModel(team: Team): NavModelItem {
   const navModel = {
     img: team.avatarUrl,
     id: 'team-' + team.id,
-    subTitle: 'Manage members & settings',
+    subTitle: 'Manage members and settings',
     url: '',
     text: team.name,
     breadcrumbs: [{ title: 'Teams', url: 'org/teams' }],
     children: [
       {
         active: false,
-        icon: 'gicon gicon-team',
+        icon: 'users-alt',
         id: `team-members-${team.id}`,
         text: 'Members',
         url: `org/teams/edit/${team.id}/members`,
       },
       {
         active: false,
-        icon: 'fa fa-fw fa-sliders',
+        icon: 'sliders-v-alt',
         id: `team-settings-${team.id}`,
         text: 'Settings',
         url: `org/teams/edit/${team.id}/settings`,
@@ -31,7 +31,7 @@ export function buildNavModel(team: Team): NavModelItem {
   if (config.licenseInfo.hasLicense) {
     navModel.children.push({
       active: false,
-      icon: 'fa fa-fw fa-refresh',
+      icon: 'sync',
       id: `team-groupsync-${team.id}`,
       text: 'External group sync',
       url: `org/teams/edit/${team.id}/groupsync`,
@@ -54,8 +54,8 @@ export function getTeamLoadingNav(pageName: string): NavModel {
   let node: NavModelItem;
 
   // find active page
-  for (const child of main.children) {
-    if (child.id.indexOf(pageName) > 0) {
+  for (const child of main.children!) {
+    if (child.id!.indexOf(pageName) > 0) {
       child.active = true;
       node = child;
       break;
@@ -64,6 +64,6 @@ export function getTeamLoadingNav(pageName: string): NavModel {
 
   return {
     main: main,
-    node: node,
+    node: node!,
   };
 }

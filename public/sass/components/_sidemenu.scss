@@ -7,6 +7,8 @@ $mobile-menu-breakpoint: md;
   flex-direction: column;
   width: $side-menu-width;
   z-index: $zindex-sidemenu;
+  border-right: $panel-border;
+
   a:focus {
     text-decoration: none;
   }
@@ -22,7 +24,6 @@ $mobile-menu-breakpoint: md;
   @include media-breakpoint-up($mobile-menu-breakpoint) {
     background: $side-menu-bg;
     height: auto;
-    box-shadow: $side-menu-shadow;
     position: relative;
     z-index: $zindex-sidemenu;
   }
@@ -64,13 +65,14 @@ $mobile-menu-breakpoint: md;
       @include left-brand-border-gradient();
 
       .dropdown-menu {
+        border: none;
         margin: 0;
         display: block;
         opacity: 0;
         top: 0px;
         // important to overlap it otherwise it can be hidden
         // again by the mouse getting outside the hover space
-        left: $side-menu-width - 2px;
+        left: $side-menu-width - 3px;
         @include animation('dropdown-anim 150ms ease-in-out 100ms forwards');
         z-index: $zindex-sidemenu;
       }
@@ -83,7 +85,7 @@ $mobile-menu-breakpoint: md;
 }
 
 .sidemenu-link {
-  color: $link-color;
+  color: $side-menu-icon-color !important;
   line-height: 42px;
   padding: 0px 10px 0px 10px;
   display: block;
@@ -96,7 +98,6 @@ $mobile-menu-breakpoint: md;
     border-radius: 50%;
     width: 28px;
     height: 28px;
-    box-shadow: 0 0 14px 2px rgba(255, 255, 255, 0.05);
   }
 }
 
@@ -115,26 +116,7 @@ $mobile-menu-breakpoint: md;
   width: 35px;
   height: 35px;
   display: inline-block;
-
-  .fa,
-  .icon-gf,
-  .gicon {
-    color: $side-menu-link-color;
-    position: relative;
-    opacity: 0.7;
-    font-size: 130%;
-    height: 22px;
-    width: 22px;
-  }
-
-  .fa {
-    top: 2px;
-    position: relative;
-  }
-
-  .icon-gf {
-    top: 5px;
-  }
+  position: relative;
 
   img {
     position: relative;
@@ -146,18 +128,16 @@ $mobile-menu-breakpoint: md;
   white-space: nowrap;
   background-color: $side-menu-item-hover-bg;
   font-size: 17px;
-  color: #ebedf2;
+  color: $side-menu-header-color;
 }
 
 .side-menu-header-link {
-  // Removes left-brand-border-gradient from link
-  color: #ebedf2 !important;
+  color: $side-menu-header-color !important;
   border: none !important;
   padding: 0 !important;
 }
 
 .dropdown-menu--sidemenu > li > .side-menu-header-link:hover {
-  // Makes sure it looks good on light theme
   color: #fff !important;
   background-color: $side-menu-item-hover-bg !important;
 }
@@ -205,14 +185,14 @@ li.sidemenu-org-switcher {
   height: $navbarHeight - 1px;
 
   &:hover {
-    background: $navbarButtonBackgroundHighlight;
+    background: lightOrDark($gray33, $gray25);
   }
 
   img {
-    width: 30px;
+    width: 26px;
     position: relative;
     top: 5px;
-    left: 4px;
+    left: 8px;
   }
 }
 
@@ -227,7 +207,7 @@ li.sidemenu-org-switcher {
       background: $side-menu-bg-mobile;
       height: auto;
       box-shadow: $side-menu-shadow;
-      position: relative;
+      position: absolute;
       z-index: $zindex-sidemenu;
     }
 
@@ -253,11 +233,12 @@ li.sidemenu-org-switcher {
     }
 
     .sidemenu__logo_small_breakpoint {
-      padding: 14px 10px 26px 13px;
+      padding: 16px 13px;
       display: flex;
       flex-direction: row;
       justify-content: space-between;
       align-items: baseline;
+      cursor: pointer;
 
       .fa-bars {
         font-size: 25px;

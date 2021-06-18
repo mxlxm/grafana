@@ -1,4 +1,12 @@
-import { GraphSeriesValue, Field, formattedValueToString, getDisplayProcessor } from '@grafana/data';
+import {
+  GraphSeriesValue,
+  Field,
+  formattedValueToString,
+  getFieldDisplayName,
+  TimeZone,
+  dateTimeFormat,
+  systemDateFormats,
+} from '@grafana/data';
 
 /**
  * Returns index of the closest datapoint BEFORE hover position
@@ -48,7 +56,8 @@ export const getMultiSeriesGraphHoverInfo = (
   yAxisDimensions: Field[],
   xAxisDimensions: Field[],
   /** Well, time basically */
-  xAxisPosition: number
+  xAxisPosition: number,
+  timeZone?: TimeZone
 ): {
   results: MultiSeriesHoverInfo[];
   time?: GraphSeriesValue;
@@ -75,15 +84,14 @@ export const getMultiSeriesGraphHoverInfo = (
       minTime = time.display ? formattedValueToString(time.display(pointTime)) : pointTime;
     }
 
-    const display = field.display ?? getDisplayProcessor({ field });
-    const disp = display(field.values.get(hoverIndex));
+    const disp = field.display!(field.values.get(hoverIndex));
 
     results.push({
       value: formattedValueToString(disp),
       datapointIndex: hoverIndex,
       seriesIndex: i,
       color: disp.color,
-      label: field.name,
+      label: getFieldDisplayName(field),
       time: time.display ? formattedValueToString(time.display(pointTime)) : pointTime,
     });
   }
@@ -92,4 +100,41 @@ export const getMultiSeriesGraphHoverInfo = (
     results,
     time: minTime,
   };
+};
+
+export const graphTickFormatter = (epoch: number, axis: any) => {
+  return dateTimeFormat(epoch, {
+    format: axis?.options?.timeformat,
+    timeZone: axis?.options?.timezone,
+  });
+};
+
+export const graphTimeFormat = (ticks: number | null, min: number | null, max: number | null): string => {
+  if (min && max && ticks) {
+    const range = max - min;
+    const secPerTick = range / ticks / 1000;
+    // Need have 10 millisecond margin on the day range
+    // As sometimes last 24 hour dashboard evaluates to more than 86400000
+    const oneDay = 86400010;
+    const oneYear = 31536000000;
+
+    if (secPerTick <= 45) {
+      return systemDateFormats.interval.second;
+    }
+    if (range <= oneDay) {
+      return systemDateFormats.interval.minute;
+    }
+    if (secPerTick <= 80000) {
+      return systemDateFormats.interval.hour;
+    }
+    if (range <= oneYear) {
+      return systemDateFormats.interval.day;
+    }
+    if (secPerTick <= 31536000) {
+      return systemDateFormats.interval.month;
+    }
+    return systemDateFormats.interval.year;
+  }
+
+  return systemDateFormats.interval.minute;
 };

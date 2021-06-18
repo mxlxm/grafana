@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	dboards "github.com/grafana/grafana/pkg/dashboards"
 	"github.com/grafana/grafana/pkg/services/provisioning/dashboards"
 	"github.com/grafana/grafana/pkg/setting"
 	"github.com/stretchr/testify/assert"
@@ -37,7 +38,6 @@ func TestProvisioningServiceImpl(t *testing.T) {
 
 		assert.False(t, serviceTest.serviceRunning, "Service should not be running")
 		assert.Equal(t, context.Canceled, serviceTest.serviceError, "Service should have returned canceled error")
-
 	})
 
 	t.Run("Failed reloading does not stop polling with old provisioned", func(t *testing.T) {
@@ -75,7 +75,7 @@ type serviceTestStruct struct {
 	startService func()
 	cancel       func()
 
-	mock    *dashboards.DashboardProvisionerMock
+	mock    *dashboards.ProvisionerMock
 	service *provisioningServiceImpl
 }
 
@@ -91,10 +91,11 @@ func setup() *serviceTestStruct {
 		pollChangesChannel <- ctx
 	}
 
-	serviceTest.service = NewProvisioningServiceImpl(
-		func(path string) (DashboardProvisioner, error) {
+	serviceTest.service = newProvisioningServiceImpl(
+		func(string, dboards.Store) (dashboards.DashboardProvisioner, error) {
 			return serviceTest.mock, nil
 		},
+		nil,
 		nil,
 		nil,
 	)

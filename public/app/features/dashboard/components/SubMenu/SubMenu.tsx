@@ -1,36 +1,72 @@
-// Libaries
 import React, { PureComponent } from 'react';
+import { connect, MapStateToProps } from 'react-redux';
+import { StoreState } from '../../../../types';
+import { getSubMenuVariables } from '../../../variables/state/selectors';
+import { VariableModel } from '../../../variables/types';
+import { DashboardModel } from '../../state';
+import { DashboardLinks } from './DashboardLinks';
+import { Annotations } from './Annotations';
+import { SubMenuItems } from './SubMenuItems';
+import { DashboardLink } from '../../state/DashboardModel';
+import { AnnotationQuery } from '@grafana/data';
 
-// Utils & Services
-import { AngularComponent, getAngularLoader } from '@grafana/runtime';
-
-// Types
-import { DashboardModel } from '../../state/DashboardModel';
-
-export interface Props {
-  dashboard: DashboardModel | null;
+interface OwnProps {
+  dashboard: DashboardModel;
+  links: DashboardLink[];
+  annotations: AnnotationQuery[];
 }
 
-export class SubMenu extends PureComponent<Props> {
-  element: HTMLElement;
-  angularCmp: AngularComponent;
+interface ConnectedProps {
+  variables: VariableModel[];
+}
 
-  componentDidMount() {
-    const loader = getAngularLoader();
+interface DispatchProps {}
 
-    const template = '<dashboard-submenu dashboard="dashboard" />';
-    const scopeProps = { dashboard: this.props.dashboard };
+type Props = OwnProps & ConnectedProps & DispatchProps;
 
-    this.angularCmp = loader.load(this.element, scopeProps, template);
-  }
-
-  componentWillUnmount() {
-    if (this.angularCmp) {
-      this.angularCmp.destroy();
+class SubMenuUnConnected extends PureComponent<Props> {
+  onAnnotationStateChanged = (updatedAnnotation: any) => {
+    // we're mutating dashboard state directly here until annotations are in Redux.
+    for (let index = 0; index < this.props.dashboard.annotations.list.length; index++) {
+      const annotation = this.props.dashboard.annotations.list[index];
+      if (annotation.name === updatedAnnotation.name) {
+        annotation.enable = !annotation.enable;
+        break;
+      }
     }
-  }
+    this.props.dashboard.startRefresh();
+    this.forceUpdate();
+  };
 
   render() {
-    return <div ref={element => (this.element = element)} />;
+    const { dashboard, variables, links, annotations } = this.props;
+
+    if (!dashboard.isSubMenuVisible()) {
+      return null;
+    }
+
+    return (
+      <div className="submenu-controls">
+        <SubMenuItems variables={variables} />
+        <Annotations
+          annotations={annotations}
+          onAnnotationChanged={this.onAnnotationStateChanged}
+          events={dashboard.events}
+        />
+        <div className="gf-form gf-form--grow" />
+        {dashboard && <DashboardLinks dashboard={dashboard} links={links} />}
+        <div className="clearfix" />
+      </div>
+    );
   }
 }
+
+const mapStateToProps: MapStateToProps<ConnectedProps, OwnProps, StoreState> = (state) => {
+  return {
+    variables: getSubMenuVariables(state.templating.variables),
+  };
+};
+
+export const SubMenu = connect(mapStateToProps)(SubMenuUnConnected);
+
+SubMenu.displayName = 'SubMenu';

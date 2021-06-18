@@ -1,17 +1,15 @@
 import { Task, TaskRunner } from './task';
 import { pluginBuildRunner } from './plugin.build';
-import { restoreCwd } from '../utils/cwd';
 import { getPluginJson } from '../../config/utils/pluginValidation';
 import { getPluginId } from '../../config/utils/getPluginId';
-import { PluginMeta } from '@grafana/data';
 
 // @ts-ignore
 import execa = require('execa');
 import path = require('path');
-import fs from 'fs';
-import { getPackageDetails, findImagesInFolder, getGrafanaVersions, readGitLog } from '../../plugins/utils';
+import fs from 'fs-extra';
+import { getPackageDetails, getGrafanaVersions, readGitLog } from '../../plugins/utils';
+import { buildManifest, signManifest, saveManifest } from '../../plugins/manifest';
 import {
-  job,
   getJobFolder,
   writeJobStats,
   getCiFolder,
@@ -20,16 +18,17 @@ import {
   getCircleDownloadBaseURL,
 } from '../../plugins/env';
 import { agregateWorkflowInfo, agregateCoverageInfo, agregateTestInfo } from '../../plugins/workflow';
-import { PluginPackageDetails, PluginBuildReport, TestResultsInfo } from '../../plugins/types';
-import { runEndToEndTests } from '../../plugins/e2e/launcher';
-import { getEndToEndSettings } from '../../plugins/index';
-import { manifestTask } from './manifest';
-import { execTask } from '../utils/execTask';
+import { PluginPackageDetails, PluginBuildReport } from '../../plugins/types';
+import rimrafCallback from 'rimraf';
+import { promisify } from 'util';
+const rimraf = promisify(rimrafCallback);
 
 export interface PluginCIOptions {
-  backend?: boolean;
-  full?: boolean;
+  finish?: boolean;
   upload?: boolean;
+  signatureType?: string;
+  rootUrls?: string[];
+  maxJestWorkers?: string;
 }
 
 /**
@@ -42,72 +41,34 @@ export interface PluginCIOptions {
  *
  *  Anything that should be put into the final zip file should be put in:
  *   ~/ci/jobs/build_xxx/dist
+ *
+ * @deprecated -- this task was written with a specific circle-ci build in mind.  That system
+ * has been replaced with Drone, and this is no longer the best practice.  Any new work
+ * should be defined in the grafana build pipeline tool or drone configs directly.
  */
-const buildPluginRunner: TaskRunner<PluginCIOptions> = async ({ backend }) => {
+const buildPluginRunner: TaskRunner<PluginCIOptions> = async ({ finish, maxJestWorkers }) => {
   const start = Date.now();
-  const workDir = getJobFolder();
-  await execa('rimraf', [workDir]);
-  fs.mkdirSync(workDir);
 
-  if (backend) {
-    const makefile = path.resolve(process.cwd(), 'Makefile');
-    if (!fs.existsSync(makefile)) {
-      throw new Error(`Missing: ${makefile}. A Makefile is required for backend plugins.`);
+  if (finish) {
+    const workDir = getJobFolder();
+    await rimraf(workDir);
+    fs.mkdirSync(workDir);
+
+    // Move local folders to the scoped job folder
+    for (const name of ['dist', 'coverage']) {
+      const dir = path.resolve(process.cwd(), name);
+      if (fs.existsSync(dir)) {
+        fs.moveSync(dir, path.resolve(workDir, name));
+      }
     }
-
-    // Run plugin-ci task
-    execa('make', ['backend-plugin-ci']).stdout!.pipe(process.stdout);
+    writeJobStats(start, workDir);
   } else {
     // Do regular build process with coverage
-    await pluginBuildRunner({ coverage: true });
+    await pluginBuildRunner({ coverage: true, maxJestWorkers });
   }
-
-  // Move local folders to the scoped job folder
-  for (const name of ['dist', 'coverage']) {
-    const dir = path.resolve(process.cwd(), name);
-    if (fs.existsSync(dir)) {
-      fs.renameSync(dir, path.resolve(workDir, name));
-    }
-  }
-  writeJobStats(start, workDir);
 };
 
 export const ciBuildPluginTask = new Task<PluginCIOptions>('Build Plugin', buildPluginRunner);
-
-/**
- * 2. Build Docs
- *
- *  Take /docs/* and format it into /ci/docs/HTML site
- *
- */
-const buildPluginDocsRunner: TaskRunner<PluginCIOptions> = async () => {
-  const docsSrc = path.resolve(process.cwd(), 'docs');
-  if (!fs.existsSync(docsSrc)) {
-    console.log('No docs src');
-    return;
-  }
-
-  const start = Date.now();
-  const workDir = getJobFolder();
-  await execa('rimraf', [workDir]);
-  fs.mkdirSync(workDir);
-
-  const docsDest = path.resolve(process.cwd(), 'ci', 'docs');
-  fs.mkdirSync(docsDest);
-
-  const exe = await execa('cp', ['-rv', docsSrc + '/.', docsDest]);
-  console.log(exe.stdout);
-
-  fs.writeFile(path.resolve(docsDest, 'index.html'), `TODO... actually build docs`, err => {
-    if (err) {
-      throw new Error('Unable to docs');
-    }
-  });
-
-  writeJobStats(start, workDir);
-};
-
-export const ciBuildPluginDocsTask = new Task<PluginCIOptions>('Build Plugin Docs', buildPluginDocsRunner);
 
 /**
  * 2. Package
@@ -116,13 +77,26 @@ export const ciBuildPluginDocsTask = new Task<PluginCIOptions>('Build Plugin Doc
  *  1. merge it into: `~/ci/dist`
  *  2. zip it into packages in `~/ci/packages`
  *  3. prepare grafana environment in: `~/ci/grafana-test-env`
+ *
+ *
+ * @deprecated -- this task was written with a specific circle-ci build in mind.  That system
+ * has been replaced with Drone, and this is no longer the best practice.  Any new work
+ * should be defined in the grafana build pipeline tool or drone configs directly.
  */
-const packagePluginRunner: TaskRunner<PluginCIOptions> = async () => {
+const packagePluginRunner: TaskRunner<PluginCIOptions> = async ({ signatureType, rootUrls }) => {
   const start = Date.now();
   const ciDir = getCiFolder();
   const packagesDir = path.resolve(ciDir, 'packages');
   const distDir = path.resolve(ciDir, 'dist');
   const docsDir = path.resolve(ciDir, 'docs');
+  const jobsDir = path.resolve(ciDir, 'jobs');
+
+  fs.exists(jobsDir, (jobsDirExists) => {
+    if (!jobsDirExists) {
+      throw new Error('You must run plugin:ci-build prior to running plugin:ci-package');
+    }
+  });
+
   const grafanaEnvDir = path.resolve(ciDir, 'grafana-test-env');
   await execa('rimraf', [packagesDir, distDir, grafanaEnvDir]);
   fs.mkdirSync(packagesDir);
@@ -158,21 +132,27 @@ const packagePluginRunner: TaskRunner<PluginCIOptions> = async () => {
   const pluginJsonFile = path.resolve(distContentDir, 'plugin.json');
   const pluginInfo = getPluginJson(pluginJsonFile);
   pluginInfo.info.build = await getPluginBuildInfo();
-  fs.writeFile(pluginJsonFile, JSON.stringify(pluginInfo, null, 2), err => {
-    if (err) {
-      throw new Error('Error writing: ' + pluginJsonFile);
-    }
-  });
+  fs.writeFileSync(pluginJsonFile, JSON.stringify(pluginInfo, null, 2), { encoding: 'utf-8' });
 
-  // Write a manifest.txt file in the dist folder
-  await execTask(manifestTask)({ folder: distContentDir });
+  // Write a MANIFEST.txt file in the dist folder
+  try {
+    const manifest = await buildManifest(distContentDir);
+    if (signatureType) {
+      manifest.signatureType = signatureType;
+    }
+    if (rootUrls) {
+      manifest.rootUrls = rootUrls;
+    }
+    const signedManifest = await signManifest(manifest);
+    await saveManifest(distContentDir, signedManifest);
+  } catch (err) {
+    console.warn(`Error signing manifest: ${distContentDir}`, err);
+  }
 
   console.log('Building ZIP');
   let zipName = pluginInfo.id + '-' + pluginInfo.info.version + '.zip';
   let zipFile = path.resolve(packagesDir, zipName);
-  process.chdir(distDir);
-  await execa('zip', ['-r', zipFile, '.']);
-  restoreCwd();
+  await execa('zip', ['-r', zipFile, '.'], { cwd: distDir });
 
   const zipStats = fs.statSync(zipFile);
   if (zipStats.size < 100) {
@@ -196,19 +176,13 @@ const packagePluginRunner: TaskRunner<PluginCIOptions> = async () => {
     console.log('Creating documentation zip');
     zipName = pluginInfo.id + '-' + pluginInfo.info.version + '-docs.zip';
     zipFile = path.resolve(packagesDir, zipName);
-    process.chdir(docsDir);
-    await execa('zip', ['-r', zipFile, '.']);
-    restoreCwd();
+    await execa('zip', ['-r', zipFile, '.'], { cwd: docsDir });
 
     info.docs = await getPackageDetails(zipFile, docsDir);
   }
 
   p = path.resolve(packagesDir, 'info.json');
-  fs.writeFile(p, JSON.stringify(info, null, 2), err => {
-    if (err) {
-      throw new Error('Error writing package info: ' + p);
-    }
-  });
+  fs.writeFileSync(p, JSON.stringify(info, null, 2), { encoding: 'utf-8' });
 
   // Write the custom settings
   p = path.resolve(grafanaEnvDir, 'custom.ini');
@@ -217,11 +191,7 @@ const packagePluginRunner: TaskRunner<PluginCIOptions> = async () => {
     `[paths] \n` +
     `plugins = ${path.resolve(grafanaEnvDir, 'plugins')}\n` +
     `\n`; // empty line
-  fs.writeFile(p, customIniBody, err => {
-    if (err) {
-      throw new Error('Unable to write: ' + p);
-    }
-  });
+  fs.writeFileSync(p, customIniBody, { encoding: 'utf-8' });
 
   writeJobStats(start, getJobFolder());
 };
@@ -229,88 +199,13 @@ const packagePluginRunner: TaskRunner<PluginCIOptions> = async () => {
 export const ciPackagePluginTask = new Task<PluginCIOptions>('Bundle Plugin', packagePluginRunner);
 
 /**
- * 3. Test (end-to-end)
- *
- *  deploy the zip to a running grafana instance
- *
- */
-const testPluginRunner: TaskRunner<PluginCIOptions> = async ({ full }) => {
-  const start = Date.now();
-  const workDir = getJobFolder();
-  const results: TestResultsInfo = { job, passed: 0, failed: 0, screenshots: [] };
-  const args = {
-    withCredentials: true,
-    baseURL: process.env.BASE_URL || 'http://localhost:3000/',
-    responseType: 'json',
-    auth: {
-      username: 'admin',
-      password: 'admin',
-    },
-  };
-
-  const settings = getEndToEndSettings();
-  await execa('rimraf', [settings.outputFolder]);
-  fs.mkdirSync(settings.outputFolder);
-
-  const tempDir = path.resolve(process.cwd(), 'e2e-temp');
-  await execa('rimraf', [tempDir]);
-  fs.mkdirSync(tempDir);
-
-  try {
-    const axios = require('axios');
-    const frontendSettings = await axios.get('api/frontend/settings', args);
-    results.grafana = frontendSettings.data.buildInfo;
-
-    console.log('Grafana: ' + JSON.stringify(results.grafana, null, 2));
-
-    const loadedMetaRsp = await axios.get(`api/plugins/${settings.plugin.id}/settings`, args);
-    const loadedMeta: PluginMeta = loadedMetaRsp.data;
-    console.log('Plugin Info: ' + JSON.stringify(loadedMeta, null, 2));
-    if (loadedMeta.info.build) {
-      const currentHash = settings.plugin.info.build!.hash;
-      console.log('Check version: ', settings.plugin.info.build);
-      if (loadedMeta.info.build.hash !== currentHash) {
-        console.warn(`Testing wrong plugin version.  Expected: ${currentHash}, found: ${loadedMeta.info.build.hash}`);
-        throw new Error('Wrong plugin version');
-      }
-    }
-
-    if (!fs.existsSync('e2e-temp')) {
-      fs.mkdirSync(tempDir);
-    }
-
-    await execa('cp', [
-      'node_modules/@grafana/toolkit/src/plugins/e2e/commonPluginTests.ts',
-      path.resolve(tempDir, 'common.test.ts'),
-    ]);
-
-    await runEndToEndTests(settings.outputFolder, results);
-  } catch (err) {
-    results.error = err;
-    console.log('Test Error', err);
-  }
-  await execa('rimraf', [tempDir]);
-
-  // Now copy everything to work folder
-  await execa('cp', ['-rv', settings.outputFolder + '/.', workDir]);
-  results.screenshots = findImagesInFolder(workDir);
-
-  const f = path.resolve(workDir, 'results.json');
-  fs.writeFile(f, JSON.stringify(results, null, 2), err => {
-    if (err) {
-      throw new Error('Error saving: ' + f);
-    }
-  });
-
-  writeJobStats(start, workDir);
-};
-
-export const ciTestPluginTask = new Task<PluginCIOptions>('Test Plugin (e2e)', testPluginRunner);
-
-/**
  * 4. Report
  *
  *  Create a report from all the previous steps
+ *
+ * @deprecated -- this task was written with a specific circle-ci build in mind.  That system
+ * has been replaced with Drone, and this is no longer the best practice.  Any new work
+ * should be defined in the grafana build pipeline tool or drone configs directly.
  */
 const pluginReportRunner: TaskRunner<PluginCIOptions> = async ({ upload }) => {
   const ciDir = path.resolve(process.cwd(), 'ci');
@@ -338,11 +233,7 @@ const pluginReportRunner: TaskRunner<PluginCIOptions> = async ({ upload }) => {
 
   // Save the report to disk
   const file = path.resolve(ciDir, 'report.json');
-  fs.writeFile(file, JSON.stringify(report, null, 2), err => {
-    if (err) {
-      throw new Error('Unable to write: ' + file);
-    }
-  });
+  fs.writeFileSync(file, JSON.stringify(report, null, 2), { encoding: 'utf-8' });
 
   const GRAFANA_API_KEY = process.env.GRAFANA_API_KEY;
   if (!GRAFANA_API_KEY) {

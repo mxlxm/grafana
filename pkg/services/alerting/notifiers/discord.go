@@ -2,6 +2,7 @@ package notifiers
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"mime/multipart"
 	"os"
@@ -22,28 +23,36 @@ func init() {
 		Name:        "Discord",
 		Description: "Sends notifications to Discord",
 		Factory:     newDiscordNotifier,
-		OptionsTemplate: `
-      <h3 class="page-heading">Discord settings</h3>
-      <div class="gf-form max-width-30">
-        <span class="gf-form-label width-10">Message Content</span>
-        <input type="text"
-          class="gf-form-input max-width-30"
-          ng-model="ctrl.model.settings.content"
-          data-placement="right">
-        </input>
-        <info-popover mode="right-absolute">
-          Mention a group using @ or a user using <@ID> when notifying in a channel
-        </info-popover>
-      </div>
-      <div class="gf-form  max-width-30">
-        <span class="gf-form-label width-10">Webhook URL</span>
-        <input type="text" required class="gf-form-input max-width-30" ng-model="ctrl.model.settings.url" placeholder="Discord webhook URL"></input>
-      </div>
-    `,
+		Heading:     "Discord settings",
+		Options: []alerting.NotifierOption{
+			{
+				Label:        "Avatar URL",
+				Element:      alerting.ElementTypeInput,
+				InputType:    alerting.InputTypeText,
+				Description:  "Provide a URL to an image to use as the avatar for the bot's message",
+				PropertyName: "avatar_url",
+			},
+			{
+				Label:        "Message Content",
+				Description:  "Mention a group using @ or a user using <@ID> when notifying in a channel",
+				Element:      alerting.ElementTypeInput,
+				InputType:    alerting.InputTypeText,
+				PropertyName: "content",
+			},
+			{
+				Label:        "Webhook URL",
+				Element:      alerting.ElementTypeInput,
+				InputType:    alerting.InputTypeText,
+				Placeholder:  "Discord webhook URL",
+				PropertyName: "url",
+				Required:     true,
+			},
+		},
 	})
 }
 
 func newDiscordNotifier(model *models.AlertNotification) (alerting.Notifier, error) {
+	avatar := model.Settings.Get("avatar_url").MustString()
 	content := model.Settings.Get("content").MustString()
 	url := model.Settings.Get("url").MustString()
 	if url == "" {
@@ -53,6 +62,7 @@ func newDiscordNotifier(model *models.AlertNotification) (alerting.Notifier, err
 	return &DiscordNotifier{
 		NotifierBase: NewNotifierBase(model),
 		Content:      content,
+		AvatarURL:    avatar,
 		WebhookURL:   url,
 		log:          log.New("alerting.notifier.discord"),
 	}, nil
@@ -63,6 +73,7 @@ func newDiscordNotifier(model *models.AlertNotification) (alerting.Notifier, err
 type DiscordNotifier struct {
 	NotifierBase
 	Content    string
+	AvatarURL  string
 	WebhookURL string
 	log        log.Logger
 }
@@ -84,12 +95,17 @@ func (dn *DiscordNotifier) Notify(evalContext *alerting.EvalContext) error {
 		bodyJSON.Set("content", dn.Content)
 	}
 
+	if dn.AvatarURL != "" {
+		bodyJSON.Set("avatar_url", dn.AvatarURL)
+	}
+
 	fields := make([]map[string]interface{}, 0)
 
 	for _, evt := range evalContext.EvalMatches {
-
 		fields = append(fields, map[string]interface{}{
-			"name":   evt.Metric,
+			// Discord uniquely does not send the alert if the metric field is empty,
+			// which it can be in some cases
+			"name":   notEmpty(evt.Metric),
 			"value":  evt.Value.FullString(),
 			"inline": true,
 		})
@@ -104,7 +120,7 @@ func (dn *DiscordNotifier) Notify(evalContext *alerting.EvalContext) error {
 
 	embed := simplejson.New()
 	embed.Set("title", evalContext.GetNotificationTitle())
-	//Discord takes integer for color
+	// Discord takes integer for color
 	embed.Set("color", color)
 	embed.Set("url", ruleURL)
 	embed.Set("description", evalContext.Rule.Message)
@@ -115,17 +131,19 @@ func (dn *DiscordNotifier) Notify(evalContext *alerting.EvalContext) error {
 	var image map[string]interface{}
 	var embeddedImage = false
 
-	if evalContext.ImagePublicURL != "" {
-		image = map[string]interface{}{
-			"url": evalContext.ImagePublicURL,
+	if dn.NeedsImage() {
+		if evalContext.ImagePublicURL != "" {
+			image = map[string]interface{}{
+				"url": evalContext.ImagePublicURL,
+			}
+			embed.Set("image", image)
+		} else {
+			image = map[string]interface{}{
+				"url": "attachment://graph.png",
+			}
+			embed.Set("image", image)
+			embeddedImage = true
 		}
-		embed.Set("image", image)
-	} else {
-		image = map[string]interface{}{
-			"url": "attachment://graph.png",
-		}
-		embed.Set("image", image)
-		embeddedImage = true
 	}
 
 	bodyJSON.Set("embeds", []interface{}{embed})
@@ -157,6 +175,9 @@ func (dn *DiscordNotifier) Notify(evalContext *alerting.EvalContext) error {
 }
 
 func (dn *DiscordNotifier) embedImage(cmd *models.SendWebhookSync, imagePath string, existingJSONBody []byte) error {
+	// nolint:gosec
+	// We can ignore the gosec G304 warning on this one because `imagePath` comes
+	// from the alert `evalContext` that generates the images.
 	f, err := os.Open(imagePath)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -167,12 +188,20 @@ func (dn *DiscordNotifier) embedImage(cmd *models.SendWebhookSync, imagePath str
 			return err
 		}
 	}
-
-	defer f.Close()
+	defer func() {
+		if err := f.Close(); err != nil {
+			dn.log.Warn("Failed to close file", "path", imagePath, "err", err)
+		}
+	}()
 
 	var b bytes.Buffer
 	w := multipart.NewWriter(&b)
-
+	defer func() {
+		if err := w.Close(); err != nil {
+			// Should be OK since we already close it on non-error path
+			dn.log.Warn("Failed to close multipart writer", "err", err)
+		}
+	}()
 	fw, err := w.CreateFormField("payload_json")
 	if err != nil {
 		return err
@@ -191,10 +220,20 @@ func (dn *DiscordNotifier) embedImage(cmd *models.SendWebhookSync, imagePath str
 		return err
 	}
 
-	w.Close()
+	if err := w.Close(); err != nil {
+		return fmt.Errorf("failed to close multipart writer: %w", err)
+	}
 
 	cmd.Body = b.String()
 	cmd.ContentType = w.FormDataContentType()
 
 	return nil
+}
+
+func notEmpty(metric string) string {
+	if metric == "" {
+		return "<NO_METRIC_NAME>"
+	}
+
+	return metric
 }

@@ -4,9 +4,9 @@
   "id": "heatmap",
 
   "info": {
-    "description": "Heatmap Panel for Grafana",
+    "description": "Like a histogram over time",
     "author": {
-      "name": "Grafana Project",
+      "name": "Grafana Labs",
       "url": "https://grafana.com"
     },
     "logos": {

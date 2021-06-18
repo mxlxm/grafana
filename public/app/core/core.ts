@@ -1,35 +1,28 @@
-import './directives/dropdown_typeahead';
-import './directives/autofill_event_fix';
-import './directives/metric_segment';
-import './directives/misc';
-import './directives/ng_model_on_blur';
-import './directives/tags';
-import './directives/value_select_dropdown';
-import './directives/rebuild_on_change';
-import './directives/give_focus';
-import './directives/diff-view';
+import '../angular/dropdown_typeahead';
+import '../angular/autofill_event_fix';
+import '../angular/metric_segment';
+import '../angular/misc';
+import '../angular/ng_model_on_blur';
+import '../angular/tags';
+import '../angular/rebuild_on_change';
+import '../angular/give_focus';
+import '../angular/diff-view';
 import './jquery_extended';
 import './partials';
 import './components/jsontree/jsontree';
 import './components/code_editor/code_editor';
-import './utils/outline';
 import './components/colorpicker/spectrum_picker';
 import './services/search_srv';
 import './services/ng_react';
 import { colors, JsonExplorer } from '@grafana/ui/';
 
-import { searchDirective } from './components/search/search';
 import { infoPopover } from './components/info_popover';
-import { arrayJoin } from './directives/array_join';
-import { liveSrv } from './live/live_srv';
-import { Emitter } from './utils/emitter';
-import { layoutSelector } from './components/layout_selector/layout_selector';
+import { arrayJoin } from '../angular/array_join';
 import { switchDirective } from './components/switch';
 import { dashboardSelector } from './components/dashboard_selector';
 import { queryPartEditorDirective } from './components/query_part/query_part_editor';
 import { sqlPartEditorDirective } from './components/sql_part/sql_part_editor';
 import { formDropdownDirective } from './components/form_dropdown/form_dropdown';
-import 'app/core/controllers/all';
 import 'app/core/services/all';
 import './filters/filters';
 import coreModule from './core_module';
@@ -41,10 +34,7 @@ import { NavModelSrv } from './nav_model_srv';
 import { geminiScrollbar } from './components/scroll/scroll';
 import { profiler } from './profiler';
 import { registerAngularDirectives } from './angular_wrappers';
-import { updateLegendValues } from './time_series2';
-import TimeSeries from './time_series2';
-import { searchResultsDirective } from './components/search/search_results';
-import { manageDashboardsDirective } from './components/manage_dashboards/manage_dashboards';
+import TimeSeries, { updateLegendValues } from './time_series2';
 import { NavModel } from '@grafana/data';
 
 export {
@@ -52,12 +42,8 @@ export {
   registerAngularDirectives,
   arrayJoin,
   coreModule,
-  searchDirective,
-  liveSrv,
-  layoutSelector,
   switchDirective,
   infoPopover,
-  Emitter,
   appEvents,
   dashboardSelector,
   queryPartEditorDirective,
@@ -71,8 +57,6 @@ export {
   NavModelSrv,
   NavModel,
   geminiScrollbar,
-  manageDashboardsDirective,
   TimeSeries,
   updateLegendValues,
-  searchResultsDirective,
 };

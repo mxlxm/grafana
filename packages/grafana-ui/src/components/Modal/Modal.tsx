@@ -1,127 +1,115 @@
-import React from 'react';
+import React, { PropsWithChildren, useCallback, useEffect } from 'react';
 import { Portal } from '../Portal/Portal';
-import { css, cx } from 'emotion';
-import { stylesFactory, withTheme } from '../../themes';
-import { GrafanaTheme } from '@grafana/data';
-import { Icon } from '../Icon/Icon';
-import { IconType } from '../Icon/types';
+import { cx } from '@emotion/css';
+import { useTheme2 } from '../../themes';
+import { IconName } from '../../types';
+import { getModalStyles } from './getModalStyles';
+import { ModalHeader } from './ModalHeader';
+import { IconButton } from '../IconButton/IconButton';
+import { HorizontalGroup } from '../Layout/Layout';
 
-const getStyles = stylesFactory((theme: GrafanaTheme) => ({
-  modal: css`
-    position: fixed;
-    z-index: ${theme.zIndex.modal};
-    background: ${theme.colors.pageBg};
-    box-shadow: 0 3px 7px rgba(0, 0, 0, 0.3);
-    background-clip: padding-box;
-    outline: none;
-    width: 750px;
-    max-width: 100%;
-    left: 0;
-    right: 0;
-    margin-left: auto;
-    margin-right: auto;
-    top: 10%;
-  `,
-  modalBackdrop: css`
-    position: fixed;
-    top: 0;
-    right: 0;
-    bottom: 0;
-    left: 0;
-    z-index: ${theme.zIndex.modalBackdrop};
-    background-color: ${theme.colors.blueFaint};
-    opacity: 0.8;
-    backdrop-filter: blur(4px);
-  `,
-  modalHeader: css`
-    background: ${theme.background.pageHeader};
-    box-shadow: ${theme.shadow.pageHeader};
-    border-bottom: 1px solid ${theme.colors.pageHeaderBorder};
-    display: flex;
-  `,
-  modalHeaderTitle: css`
-    font-size: ${theme.typography.heading.h3};
-    padding-top: ${theme.spacing.sm};
-    margin: 0 ${theme.spacing.md};
-  `,
-  modalHeaderIcon: css`
-    margin-right: ${theme.spacing.md};
-    font-size: inherit;
-    &:before {
-      vertical-align: baseline;
-    }
-  `,
-  modalHeaderClose: css`
-    margin-left: auto;
-    padding: 9px ${theme.spacing.d};
-  `,
-  modalContent: css`
-    padding: calc(${theme.spacing.d} * 2);
-    overflow: auto;
-    width: 100%;
-    max-height: calc(90vh - ${theme.spacing.d} * 2);
-  `,
-}));
-
-interface Props {
-  icon?: IconType;
+export interface Props {
+  /** @deprecated no longer used */
+  icon?: IconName;
+  /** @deprecated no longer used */
+  iconTooltip?: string;
+  /** Title for the modal or custom header element */
   title: string | JSX.Element;
-  theme: GrafanaTheme;
   className?: string;
+  contentClassName?: string;
+  closeOnEscape?: boolean;
+  closeOnBackdropClick?: boolean;
 
   isOpen?: boolean;
   onDismiss?: () => void;
 
-  // If not set will call onDismiss if that is set.
+  /** If not set will call onDismiss if that is set. */
   onClickBackdrop?: () => void;
 }
 
-export class UnthemedModal extends React.PureComponent<Props> {
-  onDismiss = () => {
-    if (this.props.onDismiss) {
-      this.props.onDismiss();
+export function Modal(props: PropsWithChildren<Props>) {
+  const {
+    title,
+    children,
+    isOpen = false,
+    closeOnEscape = true,
+    closeOnBackdropClick = true,
+    className,
+    contentClassName,
+    onDismiss: propsOnDismiss,
+    onClickBackdrop,
+  } = props;
+  const theme = useTheme2();
+  const styles = getModalStyles(theme);
+  const onDismiss = useCallback(() => {
+    if (propsOnDismiss) {
+      propsOnDismiss();
     }
-  };
+  }, [propsOnDismiss]);
 
-  onClickBackdrop = () => {
-    this.onDismiss();
-  };
+  useEffect(() => {
+    const onEscKey = (ev: KeyboardEvent) => {
+      if (ev.key === 'Esc' || ev.key === 'Escape') {
+        onDismiss();
+      }
+    };
+    if (isOpen && closeOnEscape) {
+      document.addEventListener('keydown', onEscKey, false);
+    } else {
+      document.removeEventListener('keydown', onEscKey, false);
+    }
+    return () => {
+      document.removeEventListener('keydown', onEscKey, false);
+    };
+  }, [closeOnEscape, isOpen, onDismiss]);
 
-  renderDefaultHeader() {
-    const { title, icon, theme } = this.props;
-    const styles = getStyles(theme);
-
-    return (
-      <h2 className={styles.modalHeaderTitle}>
-        {icon && <Icon name={icon} className={styles.modalHeaderIcon} />}
-        {title}
-      </h2>
-    );
+  if (!isOpen) {
+    return null;
   }
 
-  render() {
-    const { title, isOpen = false, theme, className } = this.props;
-    const styles = getStyles(theme);
+  const headerClass = cx(styles.modalHeader, typeof title !== 'string' && styles.modalHeaderWithTabs);
 
-    if (!isOpen) {
-      return null;
-    }
-
-    return (
-      <Portal>
-        <div className={cx(styles.modal, className)}>
-          <div className={styles.modalHeader}>
-            {typeof title === 'string' ? this.renderDefaultHeader() : title}
-            <a className={styles.modalHeaderClose} onClick={this.onDismiss}>
-              <i className="fa fa-remove" />
-            </a>
+  return (
+    <Portal>
+      <div className={cx(styles.modal, className)}>
+        <div className={headerClass}>
+          {typeof title === 'string' && <DefaultModalHeader {...props} title={title} />}
+          {typeof title !== 'string' && title}
+          <div className={styles.modalHeaderClose}>
+            <IconButton surface="header" name="times" size="xl" onClick={onDismiss} />
           </div>
-          <div className={styles.modalContent}>{this.props.children}</div>
         </div>
-        <div className={styles.modalBackdrop} onClick={this.props.onClickBackdrop || this.onClickBackdrop} />
-      </Portal>
-    );
-  }
+        <div className={cx(styles.modalContent, contentClassName)}>{children}</div>
+      </div>
+      <div
+        className={styles.modalBackdrop}
+        onClick={onClickBackdrop || (closeOnBackdropClick ? onDismiss : undefined)}
+      />
+    </Portal>
+  );
 }
 
-export const Modal = withTheme(UnthemedModal);
+function ModalButtonRow({ children }: { children: React.ReactNode }) {
+  const theme = useTheme2();
+  const styles = getModalStyles(theme);
+
+  return (
+    <div className={styles.modalButtonRow}>
+      <HorizontalGroup justify="flex-end" spacing="md">
+        {children}
+      </HorizontalGroup>
+    </div>
+  );
+}
+
+Modal.ButtonRow = ModalButtonRow;
+
+interface DefaultModalHeaderProps {
+  title: string;
+  icon?: IconName;
+  iconTooltip?: string;
+}
+
+function DefaultModalHeader({ icon, iconTooltip, title }: DefaultModalHeaderProps): JSX.Element {
+  return <ModalHeader icon={icon} iconTooltip={iconTooltip} title={title} />;
+}

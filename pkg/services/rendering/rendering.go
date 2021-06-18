@@ -2,12 +2,16 @@ package rendering
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"math"
 	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
+	"github.com/grafana/grafana/pkg/infra/metrics"
 	"github.com/grafana/grafana/pkg/infra/remotecache"
 
 	"github.com/grafana/grafana/pkg/infra/log"
@@ -20,11 +24,14 @@ import (
 
 func init() {
 	remotecache.Register(&RenderUser{})
-	registry.RegisterService(&RenderingService{})
+	registry.Register(&registry.Descriptor{
+		Name:         ServiceName,
+		Instance:     &RenderingService{},
+		InitPriority: registry.High,
+	})
 }
 
-var IsPhantomJSEnabled = false
-
+const ServiceName = "RenderingService"
 const renderKeyPrefix = "render-%s"
 
 type RenderUser struct {
@@ -37,11 +44,14 @@ type RenderingService struct {
 	log             log.Logger
 	pluginInfo      *plugins.RendererPlugin
 	renderAction    renderFunc
+	renderCSVAction renderCSVFunc
 	domain          string
 	inProgressCount int
+	version         string
 
 	Cfg                *setting.Cfg             `inject:""`
 	RemoteCacheService *remotecache.RemoteCache `inject:""`
+	PluginManager      plugins.Manager          `inject:""`
 }
 
 func (rs *RenderingService) Init() error {
@@ -50,17 +60,24 @@ func (rs *RenderingService) Init() error {
 	// ensure ImagesDir exists
 	err := os.MkdirAll(rs.Cfg.ImagesDir, 0700)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create images directory %q: %w", rs.Cfg.ImagesDir, err)
+	}
+
+	// ensure CSVsDir exists
+	err = os.MkdirAll(rs.Cfg.CSVsDir, 0700)
+	if err != nil {
+		return fmt.Errorf("failed to create CSVs directory %q: %w", rs.Cfg.CSVsDir, err)
 	}
 
 	// set value used for domain attribute of renderKey cookie
-	if rs.Cfg.RendererUrl != "" {
+	switch {
+	case rs.Cfg.RendererUrl != "":
 		// RendererCallbackUrl has already been passed, it won't generate an error.
 		u, _ := url.Parse(rs.Cfg.RendererCallbackUrl)
 		rs.domain = u.Hostname()
-	} else if setting.HttpAddr != setting.DEFAULT_HTTP_ADDR {
-		rs.domain = setting.HttpAddr
-	} else {
+	case rs.Cfg.HTTPAddr != setting.DefaultHTTPAddr:
+		rs.domain = rs.Cfg.HTTPAddr
+	default:
 		rs.domain = "localhost"
 	}
 
@@ -68,36 +85,59 @@ func (rs *RenderingService) Init() error {
 }
 
 func (rs *RenderingService) Run(ctx context.Context) error {
-	if rs.Cfg.RendererUrl != "" {
+	if rs.remoteAvailable() {
 		rs.log = rs.log.New("renderer", "http")
-		rs.log.Info("Backend rendering via external http server")
-		rs.renderAction = rs.renderViaHttp
+
+		version, err := rs.getRemotePluginVersion()
+		if err != nil {
+			rs.log.Info("Couldn't get remote renderer version", "err", err)
+		}
+
+		rs.log.Info("Backend rendering via external http server", "version", version)
+		rs.version = version
+		rs.renderAction = rs.renderViaHTTP
+		rs.renderCSVAction = rs.renderCSVViaHTTP
 		<-ctx.Done()
 		return nil
 	}
 
-	if plugins.Renderer == nil {
-		rs.log = rs.log.New("renderer", "phantomJS")
-		rs.log.Info("Backend rendering via phantomJS")
-		rs.log.Warn("phantomJS is deprecated and will be removed in a future release. " +
-			"You should consider migrating from phantomJS to grafana-image-renderer plugin. " +
-			"Read more at https://grafana.com/docs/grafana/latest/administration/image_rendering/")
-		rs.renderAction = rs.renderViaPhantomJS
-		IsPhantomJSEnabled = true
+	if rs.pluginAvailable() {
+		rs.log = rs.log.New("renderer", "plugin")
+		rs.pluginInfo = rs.PluginManager.Renderer()
+
+		if err := rs.startPlugin(ctx); err != nil {
+			return err
+		}
+
+		rs.version = rs.pluginInfo.Info.Version
+		rs.renderAction = rs.renderViaPlugin
+		rs.renderCSVAction = rs.renderCSVViaPlugin
 		<-ctx.Done()
 		return nil
 	}
 
-	rs.log = rs.log.New("renderer", "plugin")
-	rs.pluginInfo = plugins.Renderer
+	rs.log.Debug("No image renderer found/installed. " +
+		"For image rendering support please install the grafana-image-renderer plugin. " +
+		"Read more at https://grafana.com/docs/grafana/latest/administration/image_rendering/")
 
-	if err := rs.startPlugin(ctx); err != nil {
-		return err
-	}
-
-	rs.renderAction = rs.renderViaPlugin
 	<-ctx.Done()
 	return nil
+}
+
+func (rs *RenderingService) pluginAvailable() bool {
+	return rs.PluginManager.Renderer() != nil
+}
+
+func (rs *RenderingService) remoteAvailable() bool {
+	return rs.Cfg.RendererUrl != ""
+}
+
+func (rs *RenderingService) IsAvailable() bool {
+	return rs.remoteAvailable() || rs.pluginAvailable()
+}
+
+func (rs *RenderingService) Version() string {
+	return rs.version
 }
 
 func (rs *RenderingService) RenderErrorImage(err error) (*RenderResult, error) {
@@ -108,30 +148,94 @@ func (rs *RenderingService) RenderErrorImage(err error) (*RenderResult, error) {
 	}, nil
 }
 
+func (rs *RenderingService) renderUnavailableImage() *RenderResult {
+	imgPath := "public/img/rendering_plugin_not_installed.png"
+
+	return &RenderResult{
+		FilePath: filepath.Join(setting.HomePath, imgPath),
+	}
+}
+
 func (rs *RenderingService) Render(ctx context.Context, opts Opts) (*RenderResult, error) {
+	startTime := time.Now()
+	result, err := rs.render(ctx, opts)
+
+	elapsedTime := time.Since(startTime).Milliseconds()
+	saveMetrics(elapsedTime, err, RenderPNG)
+
+	return result, err
+}
+
+func (rs *RenderingService) render(ctx context.Context, opts Opts) (*RenderResult, error) {
 	if rs.inProgressCount > opts.ConcurrentLimit {
 		return &RenderResult{
 			FilePath: filepath.Join(setting.HomePath, "public/img/rendering_limit.png"),
 		}, nil
 	}
 
-	if rs.renderAction != nil {
-		rs.log.Info("Rendering", "path", opts.Path)
-		renderKey, err := rs.generateAndStoreRenderKey(opts.OrgId, opts.UserId, opts.OrgRole)
-		if err != nil {
-			return nil, err
-		}
-
-		defer rs.deleteRenderKey(renderKey)
-
-		defer func() {
-			rs.inProgressCount--
-		}()
-
-		rs.inProgressCount++
-		return rs.renderAction(ctx, renderKey, opts)
+	if !rs.IsAvailable() {
+		rs.log.Warn("Could not render image, no image renderer found/installed. " +
+			"For image rendering support please install the grafana-image-renderer plugin. " +
+			"Read more at https://grafana.com/docs/grafana/latest/administration/image_rendering/")
+		return rs.renderUnavailableImage(), nil
 	}
-	return nil, fmt.Errorf("No renderer found")
+
+	rs.log.Info("Rendering", "path", opts.Path)
+	if math.IsInf(opts.DeviceScaleFactor, 0) || math.IsNaN(opts.DeviceScaleFactor) || opts.DeviceScaleFactor <= 0 {
+		opts.DeviceScaleFactor = 1
+	}
+	renderKey, err := rs.generateAndStoreRenderKey(opts.OrgID, opts.UserID, opts.OrgRole)
+	if err != nil {
+		return nil, err
+	}
+
+	defer rs.deleteRenderKey(renderKey)
+
+	defer func() {
+		rs.inProgressCount--
+		metrics.MRenderingQueue.Set(float64(rs.inProgressCount))
+	}()
+
+	rs.inProgressCount++
+	metrics.MRenderingQueue.Set(float64(rs.inProgressCount))
+	return rs.renderAction(ctx, renderKey, opts)
+}
+
+func (rs *RenderingService) RenderCSV(ctx context.Context, opts CSVOpts) (*RenderCSVResult, error) {
+	startTime := time.Now()
+	result, err := rs.renderCSV(ctx, opts)
+
+	elapsedTime := time.Since(startTime).Milliseconds()
+	saveMetrics(elapsedTime, err, RenderCSV)
+
+	return result, err
+}
+
+func (rs *RenderingService) renderCSV(ctx context.Context, opts CSVOpts) (*RenderCSVResult, error) {
+	if rs.inProgressCount > opts.ConcurrentLimit {
+		return nil, ErrConcurrentLimitReached
+	}
+
+	if !rs.IsAvailable() {
+		return nil, ErrRenderUnavailable
+	}
+
+	rs.log.Info("Rendering", "path", opts.Path)
+	renderKey, err := rs.generateAndStoreRenderKey(opts.OrgID, opts.UserID, opts.OrgRole)
+	if err != nil {
+		return nil, err
+	}
+
+	defer rs.deleteRenderKey(renderKey)
+
+	defer func() {
+		rs.inProgressCount--
+		metrics.MRenderingQueue.Set(float64(rs.inProgressCount))
+	}()
+
+	rs.inProgressCount++
+	metrics.MRenderingQueue.Set(float64(rs.inProgressCount))
+	return rs.renderCSVAction(ctx, renderKey, opts)
 }
 
 func (rs *RenderingService) GetRenderUser(key string) (*RenderUser, bool) {
@@ -149,17 +253,20 @@ func (rs *RenderingService) GetRenderUser(key string) (*RenderUser, bool) {
 	return nil, false
 }
 
-func (rs *RenderingService) getFilePathForNewImage() (string, error) {
+func (rs *RenderingService) getNewFilePath(rt RenderType) (string, error) {
 	rand, err := util.GetRandomString(20)
 	if err != nil {
 		return "", err
 	}
-	pngPath, err := filepath.Abs(filepath.Join(rs.Cfg.ImagesDir, rand))
-	if err != nil {
-		return "", err
+
+	ext := "png"
+	folder := rs.Cfg.ImagesDir
+	if rt == RenderCSV {
+		ext = "csv"
+		folder = rs.Cfg.CSVsDir
 	}
 
-	return pngPath + ".png", nil
+	return filepath.Abs(filepath.Join(folder, fmt.Sprintf("%s.%s", rand, ext)))
 }
 
 func (rs *RenderingService) getURL(path string) string {
@@ -170,19 +277,25 @@ func (rs *RenderingService) getURL(path string) string {
 
 		// &render=1 signals to the legacy redirect layer to
 		return fmt.Sprintf("%s%s&render=1", rs.Cfg.RendererCallbackUrl, path)
-
 	}
 
-	protocol := setting.Protocol
-	switch setting.Protocol {
-	case setting.HTTP:
+	protocol := rs.Cfg.Protocol
+	switch protocol {
+	case setting.HTTPScheme:
 		protocol = "http"
-	case setting.HTTP2, setting.HTTPS:
+	case setting.HTTP2Scheme, setting.HTTPSScheme:
 		protocol = "https"
+	default:
+		// TODO: Handle other schemes?
+	}
+
+	subPath := ""
+	if rs.Cfg.ServeFromSubPath {
+		subPath = rs.Cfg.AppSubURL
 	}
 
 	// &render=1 signals to the legacy redirect layer to
-	return fmt.Sprintf("%s://%s:%s/%s&render=1", protocol, rs.domain, setting.HttpPort, path)
+	return fmt.Sprintf("%s://%s:%s%s/%s&render=1", protocol, rs.domain, rs.Cfg.HTTPPort, subPath, path)
 }
 
 func (rs *RenderingService) generateAndStoreRenderKey(orgId, userId int64, orgRole models.RoleType) (string, error) {
@@ -207,5 +320,32 @@ func (rs *RenderingService) deleteRenderKey(key string) {
 	err := rs.RemoteCacheService.Delete(fmt.Sprintf(renderKeyPrefix, key))
 	if err != nil {
 		rs.log.Error("Failed to delete render key", "error", err)
+	}
+}
+
+func isoTimeOffsetToPosixTz(isoOffset string) string {
+	// invert offset
+	if strings.HasPrefix(isoOffset, "UTC+") {
+		return strings.Replace(isoOffset, "UTC+", "UTC-", 1)
+	}
+	if strings.HasPrefix(isoOffset, "UTC-") {
+		return strings.Replace(isoOffset, "UTC-", "UTC+", 1)
+	}
+	return isoOffset
+}
+
+func saveMetrics(elapsedTime int64, err error, renderType RenderType) {
+	if err == nil {
+		metrics.MRenderingRequestTotal.WithLabelValues("success", string(renderType)).Inc()
+		metrics.MRenderingSummary.WithLabelValues("success", string(renderType)).Observe(float64(elapsedTime))
+		return
+	}
+
+	if errors.Is(err, ErrTimeout) {
+		metrics.MRenderingRequestTotal.WithLabelValues("timeout", string(renderType)).Inc()
+		metrics.MRenderingSummary.WithLabelValues("timeout", string(renderType)).Observe(float64(elapsedTime))
+	} else {
+		metrics.MRenderingRequestTotal.WithLabelValues("failure", string(renderType)).Inc()
+		metrics.MRenderingSummary.WithLabelValues("failure", string(renderType)).Observe(float64(elapsedTime))
 	}
 }

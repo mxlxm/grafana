@@ -1,21 +1,21 @@
 import React from 'react';
 import { LocalStorageValueProvider } from '../LocalStorageValueProvider';
-import { TimeRange, isDateTime } from '@grafana/data';
-import { Props as TimePickerProps, TimePicker } from '@grafana/ui/src/components/TimePicker/TimePicker';
+import { TimeRange, isDateTime, toUtc } from '@grafana/data';
+import { TimeRangePickerProps, TimeRangePicker } from '@grafana/ui';
 
 const LOCAL_STORAGE_KEY = 'grafana.dashboard.timepicker.history';
 
-interface Props extends Omit<TimePickerProps, 'history' | 'theme'> {}
+interface Props extends Omit<TimeRangePickerProps, 'history' | 'theme'> {}
 
-export const TimePickerWithHistory: React.FC<Props> = props => {
+export const TimePickerWithHistory: React.FC<Props> = (props) => {
   return (
     <LocalStorageValueProvider<TimeRange[]> storageKey={LOCAL_STORAGE_KEY} defaultValue={[]}>
       {(values, onSaveToStore) => {
         return (
-          <TimePicker
+          <TimeRangePicker
             {...props}
-            history={values}
-            onChange={value => {
+            history={convertIfJson(values)}
+            onChange={(value) => {
               onAppendToHistory(value, values, onSaveToStore);
               props.onChange(value);
             }}
@@ -25,6 +25,21 @@ export const TimePickerWithHistory: React.FC<Props> = props => {
     </LocalStorageValueProvider>
   );
 };
+
+function convertIfJson(history: TimeRange[]): TimeRange[] {
+  return history.map((time) => {
+    if (isDateTime(time.from)) {
+      return time;
+    }
+
+    return {
+      from: toUtc(time.from),
+      to: toUtc(time.to),
+      raw: time.raw,
+    };
+  });
+}
+
 function onAppendToHistory(toAppend: TimeRange, values: TimeRange[], onSaveToStore: (values: TimeRange[]) => void) {
   if (!isAbsolute(toAppend)) {
     return;

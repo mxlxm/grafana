@@ -1,4 +1,4 @@
-import _ from 'lodash';
+import { isArray, reduce } from 'lodash';
 import { QueryPartDef, QueryPart } from 'app/core/components/query_part/query_part';
 
 const alertQueryDef = new QueryPartDef({
@@ -8,7 +8,7 @@ const alertQueryDef = new QueryPartDef({
     {
       name: 'from',
       type: 'string',
-      options: ['10s', '1m', '5m', '10m', '15m', '1h', '24h', '48h'],
+      options: ['10s', '1m', '5m', '10m', '15m', '1h', '2h', '6h', '12h', '24h', '48h'],
     },
     { name: 'to', type: 'string', options: ['now', 'now-1m', 'now-5m', 'now-10m', 'now-1h'] },
   ],
@@ -19,18 +19,28 @@ const conditionTypes = [{ text: 'Query', value: 'query' }];
 
 const alertStateSortScore = {
   alerting: 1,
+  firing: 1,
   no_data: 2,
   pending: 3,
   ok: 4,
   paused: 5,
+  inactive: 5,
 };
 
+export enum EvalFunction {
+  'IsAbove' = 'gt',
+  'IsBelow' = 'lt',
+  'IsOutsideRange' = 'outside_range',
+  'IsWithinRange' = 'within_range',
+  'HasNoValue' = 'no_value',
+}
+
 const evalFunctions = [
-  { text: 'IS ABOVE', value: 'gt' },
-  { text: 'IS BELOW', value: 'lt' },
-  { text: 'IS OUTSIDE RANGE', value: 'outside_range' },
-  { text: 'IS WITHIN RANGE', value: 'within_range' },
-  { text: 'HAS NO VALUE', value: 'no_value' },
+  { value: EvalFunction.IsAbove, text: 'IS ABOVE' },
+  { value: EvalFunction.IsBelow, text: 'IS BELOW' },
+  { value: EvalFunction.IsOutsideRange, text: 'IS OUTSIDE RANGE' },
+  { value: EvalFunction.IsWithinRange, text: 'IS WITHIN RANGE' },
+  { value: EvalFunction.HasNoValue, text: 'HAS NO VALUE' },
 ];
 
 const evalOperators = [
@@ -47,7 +57,9 @@ const reducerTypes = [
   { text: 'last()', value: 'last' },
   { text: 'median()', value: 'median' },
   { text: 'diff()', value: 'diff' },
+  { text: 'diff_abs()', value: 'diff_abs' },
   { text: 'percent_diff()', value: 'percent_diff' },
+  { text: 'percent_diff_abs()', value: 'percent_diff_abs' },
   { text: 'count_non_null()', value: 'count_non_null' },
 ];
 
@@ -73,43 +85,59 @@ function getStateDisplayModel(state: string) {
     case 'ok': {
       return {
         text: 'OK',
-        iconClass: 'icon-gf icon-gf-online',
+        iconClass: 'heart',
         stateClass: 'alert-state-ok',
       };
     }
     case 'alerting': {
       return {
         text: 'ALERTING',
-        iconClass: 'icon-gf icon-gf-critical',
+        iconClass: 'heart-break',
         stateClass: 'alert-state-critical',
       };
     }
     case 'no_data': {
       return {
         text: 'NO DATA',
-        iconClass: 'fa fa-question',
+        iconClass: 'question-circle',
         stateClass: 'alert-state-warning',
       };
     }
     case 'paused': {
       return {
         text: 'PAUSED',
-        iconClass: 'fa fa-pause',
+        iconClass: 'pause',
         stateClass: 'alert-state-paused',
       };
     }
     case 'pending': {
       return {
         text: 'PENDING',
-        iconClass: 'fa fa-exclamation',
+        iconClass: 'hourglass',
         stateClass: 'alert-state-warning',
       };
     }
     case 'unknown': {
       return {
         text: 'UNKNOWN',
-        iconClass: 'fa fa-question',
+        iconClass: 'question-circle',
         stateClass: 'alert-state-paused',
+      };
+    }
+
+    case 'firing': {
+      return {
+        text: 'FIRING',
+        iconClass: 'fire',
+        stateClass: '',
+      };
+    }
+
+    case 'inactive': {
+      return {
+        text: 'INACTIVE',
+        iconClass: 'check',
+        stateClass: '',
       };
     }
   }
@@ -118,7 +146,7 @@ function getStateDisplayModel(state: string) {
 }
 
 function joinEvalMatches(matches: any, separator: string) {
-  return _.reduce(
+  return reduce(
     matches,
     (res, ev) => {
       if (ev.metric !== undefined && ev.value !== undefined) {
@@ -132,7 +160,7 @@ function joinEvalMatches(matches: any, separator: string) {
 
       return res;
     },
-    []
+    [] as string[]
   ).join(separator);
 }
 
@@ -141,9 +169,9 @@ function getAlertAnnotationInfo(ah: any) {
   // old way stored evalMatches in data property directly,
   // new way stores it in evalMatches property on new data object
 
-  if (_.isArray(ah.data)) {
+  if (isArray(ah.data)) {
     return joinEvalMatches(ah.data, ', ');
-  } else if (_.isArray(ah.data.evalMatches)) {
+  } else if (isArray(ah.data.evalMatches)) {
     return joinEvalMatches(ah.data.evalMatches, ', ');
   }
 

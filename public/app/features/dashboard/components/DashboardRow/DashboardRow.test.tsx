@@ -1,5 +1,5 @@
 import React from 'react';
-import { shallow } from 'enzyme';
+import { mount } from 'enzyme';
 import { DashboardRow } from './DashboardRow';
 import { PanelModel } from '../../state/PanelModel';
 
@@ -13,10 +13,11 @@ describe('DashboardRow', () => {
       meta: {
         canEdit: true,
       },
+      events: { subscribe: jest.fn() },
     };
 
     panel = new PanelModel({ collapsed: false });
-    wrapper = shallow(<DashboardRow panel={panel} dashboard={dashboardMock} />);
+    wrapper = mount(<DashboardRow panel={panel} dashboard={dashboardMock} />);
   });
 
   it('Should not have collapsed class when collaped is false', () => {
@@ -31,20 +32,24 @@ describe('DashboardRow', () => {
     expect(dashboardMock.toggleRow.mock.calls).toHaveLength(1);
   });
 
+  it('Should subscribe to event during mount', () => {
+    expect(dashboardMock.events.subscribe.mock.calls).toHaveLength(1);
+  });
+
   it('should have two actions as admin', () => {
     expect(wrapper.find('.dashboard-row__actions .pointer')).toHaveLength(2);
   });
 
   it('should not show row drag handle when cannot edit', () => {
     dashboardMock.meta.canEdit = false;
-    wrapper = shallow(<DashboardRow panel={panel} dashboard={dashboardMock} />);
+    wrapper = mount(<DashboardRow panel={panel} dashboard={dashboardMock} />);
     expect(wrapper.find('.dashboard-row__drag')).toHaveLength(0);
   });
 
   it('should have zero actions when cannot edit', () => {
     dashboardMock.meta.canEdit = false;
     panel = new PanelModel({ collapsed: false });
-    wrapper = shallow(<DashboardRow panel={panel} dashboard={dashboardMock} />);
+    wrapper = mount(<DashboardRow panel={panel} dashboard={dashboardMock} />);
     expect(wrapper.find('.dashboard-row__actions .pointer')).toHaveLength(0);
   });
 });
